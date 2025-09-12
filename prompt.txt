@@ -1,0 +1,1 @@
+okay maintenant je te renvoie le fichier qu'on doit patcher , analyse les erreurs de logs et propose moi un patche pour le fichier en jointure svp et merci! ; logs : 

@@ -1,0 +1,124 @@
+{'income_stmt':                                                       2024-12-31    2023-12-31    2022-12-31    2021-12-31  2020-12-31
+Tax Effect Of Unusual Items                        -1.285500e+07 -4.576000e+07 -6.447660e+06  7.680911e+06         NaN
+Tax Rate For Calcs                                  1.500000e-01  4.000000e-01  2.621000e-01  1.228950e-01         NaN
+Normalized EBITDA                                   4.248000e+08  2.973000e+08  1.772000e+08  3.229000e+08         NaN
+Total Unusual Items                                -8.570000e+07 -1.144000e+08 -2.460000e+07  6.250000e+07         NaN
+Total Unusual Items Excluding Goodwill             -8.570000e+07 -1.144000e+08 -2.460000e+07  6.250000e+07         NaN
+Net Income From Continuing Operation Net Minori...  1.026000e+08 -6.450000e+07 -6.680000e+07  1.406000e+08         NaN
+Reconciled Depreciation                             2.481000e+08  2.351000e+08  1.959000e+08  1.968000e+08         NaN
+Reconciled Cost Of Revenue                          6.838000e+08  6.846000e+08  5.781000e+08  5.730000e+08         NaN
+EBITDA                                              3.391000e+08  1.829000e+08  1.526000e+08  3.854000e+08         NaN
+EBIT                                                9.100000e+07 -5.220000e+07 -4.330000e+07  1.886000e+08         NaN
+Net Interest Income                                -1.020000e+07 -5.700000e+06 -2.400000e+07 -3.450000e+07         NaN
+Interest Expense                                    7.800000e+06  7.000000e+06  2.210000e+07  2.830000e+07         NaN
+Interest Income                                     6.900000e+06  7.500000e+06  3.800000e+06  3.000000e+05         NaN
+Normalized Income                                   1.754450e+08  4.140000e+06 -4.864766e+07  8.578091e+07         NaN
+Net Income From Continuing And Discontinued Ope...  1.026000e+08 -6.450000e+07 -6.680000e+07  1.406000e+08         NaN
+Total Expenses                                      7.422000e+08  7.247000e+08  6.201000e+08  6.124000e+08         NaN
+Rent Expense Supplemental                           9.400000e+06  4.500000e+06  4.200000e+06  2.600000e+06         NaN
+Total Operating Income As Reported                  1.823000e+08  6.180000e+07 -1.570000e+07  1.373000e+08         NaN
+Diluted Average Shares                              7.584000e+08  6.840000e+08  6.819000e+08  6.824000e+08         NaN
+Basic Average Shares                                7.522000e+08  6.840000e+08  6.819000e+08  6.808000e+08         NaN
+Diluted EPS                                         1.400000e-01 -9.000000e-02 -1.000000e-01  2.100000e-01         NaN
+Basic EPS                                           1.400000e-01 -9.000000e-02 -1.000000e-01  2.100000e-01         NaN
+Diluted NI Availto Com Stockholders                 1.026000e+08 -6.450000e+07 -6.680000e+07  1.406000e+08         NaN
+Net Income Common Stockholders                      1.026000e+08 -6.450000e+07 -6.680000e+07  1.406000e+08         NaN
+Net Income                                          1.026000e+08 -6.450000e+07 -6.680000e+07  1.406000e+08         NaN
+Net Income Including Noncontrolling Interests       1.026000e+08 -6.450000e+07 -6.680000e+07  1.406000e+08         NaN
+Net Income Continuous Operations                    1.026000e+08 -6.450000e+07 -6.680000e+07  1.406000e+08         NaN
+Tax Provision                                      -1.940000e+07  5.300000e+06  1.400000e+06  1.970000e+07         NaN
+Pretax Income                                       8.320000e+07 -5.920000e+07 -6.540000e+07  1.603000e+08         NaN
+Other Income Expense                               -8.890000e+07 -1.153000e+08 -2.570000e+07  6.170000e+07         NaN
+Other Non Operating Income Expenses                -3.200000e+06 -9.000000e+05 -1.100000e+06 -8.000000e+05         NaN
+Special Income Charges                              4.100000e+07 -3.000000e+05 -4.100000e+06  1.453000e+08         NaN
+Gain On Sale Of Ppe                                -1.300000e+06 -3.000000e+05 -2.000000e+06 -2.000000e+06         NaN
+Gain On Sale Of Business                                     NaN           NaN  0.000000e+00  1.473000e+08 -17400000.0
+Other Special Charges                              -4.230000e+07           NaN  4.300000e+06           NaN  23300000.0
+Restructuring And Mergern Acquisition                        NaN  0.000000e+00  2.100000e+06  0.000000e+00         0.0
+Gain On Sale Of Security                           -1.267000e+08 -1.141000e+08 -2.050000e+07 -8.280000e+07         NaN
+Net Non Operating Interest Income Expense          -1.020000e+07 -5.700000e+06 -2.400000e+07 -3.450000e+07         NaN
+Total Other Finance Cost                            9.300000e+06  6.200000e+06  5.700000e+06  6.500000e+06         NaN
+Interest Expense Non Operating                      7.800000e+06  7.000000e+06  2.210000e+07  2.830000e+07         NaN
+Interest Income Non Operating                       6.900000e+06  7.500000e+06  3.800000e+06  3.000000e+05         NaN
+Operating Income                                    1.823000e+08  6.180000e+07 -1.570000e+07  1.331000e+08         NaN
+Operating Expense                                   5.840000e+07  4.010000e+07  4.200000e+07  3.940000e+07         NaN
+Other Operating Expenses                            1.980000e+07  1.020000e+07  1.810000e+07  1.540000e+07         NaN
+Selling General And Administration                  3.860000e+07  2.990000e+07  2.390000e+07  2.400000e+07         NaN
+General And Administrative Expense                  3.860000e+07  2.990000e+07  2.390000e+07  2.400000e+07         NaN
+Other Gand A                                        2.490000e+07  2.450000e+07  2.130000e+07  2.180000e+07         NaN
+Salaries And Wages                                  1.370000e+07  5.400000e+06  2.600000e+06  2.200000e+06         NaN
+Gross Profit                                        2.407000e+08  1.019000e+08  2.630000e+07  1.725000e+08         NaN
+Cost Of Revenue                                     6.838000e+08  6.846000e+08  5.781000e+08  5.730000e+08         NaN
+Total Revenue                                       9.245000e+08  7.865000e+08  6.044000e+08  7.455000e+08         NaN
+Operating Revenue                                   9.245000e+08  7.865000e+08  6.044000e+08  7.455000e+08         NaN, 'balance_sheet':                                                     2024-12-31   2023-12-31   2022-12-31   2021-12-31  2020-12-31
+Ordinary Shares Number                            7.909305e+08  687005978.0  682276959.0  681146344.0         NaN
+Share Issued                                      7.909305e+08  687005978.0  682276959.0  681146344.0         NaN
+Net Debt                                          2.918000e+08  210500000.0  194100000.0    9500000.0         NaN
+Total Debt                                        3.997000e+08  401200000.0  396200000.0  501700000.0         NaN
+Tangible Book Value                               1.052300e+09  789200000.0  959500000.0  955900000.0         NaN
+...                                                        ...          ...          ...          ...         ...
+Cash Cash Equivalents And Short Term Investments  1.103000e+08  192600000.0  236400000.0  541000000.0         NaN
+Other Short Term Investments                      5.100000e+06    7100000.0   35600000.0   59500000.0         NaN
+Cash And Cash Equivalents                         1.052000e+08  185500000.0  200800000.0  481500000.0         NaN
+Cash Equivalents                                           NaN          NaN   33100000.0  144000000.0         NaN
+Cash Financial                                             NaN          NaN  167700000.0  337500000.0         NaN
+
+[68 rows x 5 columns], 'cash_flow':                                                  2024-12-31   2023-12-31   2022-12-31   2021-12-31   2020-12-31
+Free Cash Flow                                  121700000.0   21700000.0 -102200000.0   76400000.0          NaN
+Repayment Of Debt                                -2600000.0   -9300000.0 -111900000.0  -10400000.0          NaN
+Issuance Of Debt                                        NaN          NaN          NaN          NaN  296600000.0
+Issuance Of Capital Stock                       164600000.0          0.0     900000.0     200000.0          NaN
+Capital Expenditure                            -271100000.0 -265900000.0 -292900000.0 -247300000.0          NaN
+End Cash Position                               105200000.0  185500000.0  200800000.0  481500000.0          NaN
+Beginning Cash Position                         185500000.0  200800000.0  481500000.0  186300000.0          NaN
+Effect Of Exchange Rate Changes                  -1900000.0    -300000.0   -4500000.0     600000.0          NaN
+Changes In Cash                                 -78400000.0  -15000000.0 -276200000.0  294600000.0          NaN
+Financing Cash Flow                            -207800000.0  -68600000.0 -185000000.0  -86500000.0          NaN
+Cash Flow From Continuing Financing Activities -207800000.0  -68600000.0 -185000000.0  -86500000.0          NaN
+Net Other Financing Charges                    -334300000.0  -28900000.0  -36400000.0  -33700000.0          NaN
+Interest Paid Cff                               -37700000.0  -35500000.0  -37600000.0  -42600000.0          NaN
+Proceeds From Stock Option Exercised              2200000.0    5100000.0          NaN          NaN          NaN
+Cash Dividends Paid                                     0.0          0.0          0.0          0.0          NaN
+Net Common Stock Issuance                       164600000.0          0.0     900000.0     200000.0          NaN
+Common Stock Issuance                           164600000.0          0.0     900000.0     200000.0          NaN
+Net Issuance Payments Of Debt                    -2600000.0   -9300000.0 -111900000.0  -10400000.0          NaN
+Net Short Term Debt Issuance                            NaN          NaN          NaN          0.0  -30000000.0
+Short Term Debt Payments                                NaN          NaN          NaN          0.0  -30000000.0
+Net Long Term Debt Issuance                      -2600000.0   -9300000.0 -111900000.0  -10400000.0          NaN
+Long Term Debt Payments                          -2600000.0   -9300000.0 -111900000.0  -10400000.0          NaN
+Long Term Debt Issuance                                 NaN          NaN          NaN          NaN  296600000.0
+Investing Cash Flow                            -263400000.0 -234000000.0 -281900000.0   57400000.0          NaN
+Cash Flow From Continuing Investing Activities -263400000.0 -234000000.0 -281900000.0   57400000.0          NaN
+Net Other Investing Changes                             NaN          NaN   13700000.0    1400000.0     100000.0
+Interest Received Cfi                             6800000.0    7500000.0    3900000.0     300000.0          NaN
+Net Investment Purchase And Sale                        NaN   24400000.0   -4000000.0  -36400000.0   -2100000.0
+Sale Of Investment                                      NaN   25300000.0          0.0          NaN  102800000.0
+Purchase Of Investment                                  NaN    -900000.0   -4000000.0  -36400000.0   -2100000.0
+Net Business Purchase And Sale                     900000.0   24400000.0          0.0   39400000.0          NaN
+Sale Of Business                                   900000.0   24400000.0          0.0   39400000.0          NaN
+Net PPE Purchase And Sale                      -271100000.0 -265900000.0 -295500000.0   52700000.0          NaN
+Sale Of PPE                                             NaN          0.0   -2600000.0  300000000.0          0.0
+Purchase Of PPE                                -271100000.0 -265900000.0 -292900000.0 -247300000.0          NaN
+Operating Cash Flow                             392800000.0  287600000.0  190700000.0  323700000.0          NaN
+Cash Flow From Continuing Operating Activities  392700000.0  287600000.0  190700000.0  323700000.0          NaN
+Taxes Refund Paid                                -1500000.0   -2800000.0    -700000.0   -3400000.0          NaN
+Change In Working Capital                       -16000000.0   -5800000.0    9100000.0    1000000.0          NaN
+Change In Payables And Accrued Expense           -1700000.0    6600000.0   25100000.0   -3900000.0          NaN
+Change In Payable                                -1700000.0    6600000.0   25100000.0   -3900000.0          NaN
+Change In Prepaid Assets                         -8300000.0   -1800000.0    3500000.0     200000.0          NaN
+Change In Inventory                               2800000.0   -6500000.0  -16000000.0   -4800000.0          NaN
+Change In Receivables                            -8800000.0   -4100000.0   -3500000.0    9500000.0          NaN
+Other Non Cash Items                            -33700000.0    4100000.0   19500000.0   27600000.0          NaN
+Stock Based Compensation                           600000.0     800000.0    1000000.0    1500000.0          NaN
+Unrealized Gain Loss On Investment Securities      900000.0    4400000.0   28000000.0   21300000.0          NaN
+Provisionand Write Offof Assets                         NaN     700000.0    4000000.0          0.0          NaN
+Asset Impairment Charge                                 NaN          NaN          NaN          NaN          0.0
+Deferred Tax                                    -19400000.0    5300000.0    1400000.0   19700000.0          NaN
+Deferred Income Tax                             -19400000.0    5300000.0    1400000.0   19700000.0          NaN
+Depreciation Amortization Depletion             248100000.0  235100000.0  195900000.0  196800000.0          NaN
+Operating Gains Losses                          111200000.0  111000000.0    -700000.0  -81400000.0          NaN
+Gain Loss On Investment Securities              138000000.0  106700000.0   -2200000.0   64800000.0          NaN
+Net Foreign Currency Exchange Gain Loss         -11300000.0    3300000.0   -4800000.0    -900000.0          NaN
+Gain Loss On Sale Of PPE                                NaN          NaN          0.0 -147300000.0          0.0
+Gain Loss On Sale Of Business                           NaN          NaN          NaN          0.0   17400000.0
+Net Income From Continuing Operations           102600000.0  -64500000.0  -66800000.0  140600000.0          NaN}

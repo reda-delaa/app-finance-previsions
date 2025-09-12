@@ -1,0 +1,12 @@
+--- a/web_navigator.py
++++ b/web_navigator.py
+@@
+-SEARXNG_DEFAULT_ENGINES = ["google", "duckduckgo", "bing"]  # ordre de préférence
++SEARXNG_DEFAULT_ENGINES = ["duckduckgo", "bing", "google"]  # ordre de préférence (patch smoke test)
+
+@@
+-    logger_.warning("All SearXNG instances failed.")
+-    return {"results": []}
++    logger_.warning("All SearXNG instances failed.")
++    # PATCH_TEST: diff appliqué (smoke test OK)
++    return {"results": []}

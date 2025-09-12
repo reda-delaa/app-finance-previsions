@@ -1,0 +1,1 @@
+DCFResult(fv_central=20.2191030741892, fv_low=6.607550024244834, fv_high=27.22310609988872, wacc_used=0.06, g_used=0.02, confidence=0.7)

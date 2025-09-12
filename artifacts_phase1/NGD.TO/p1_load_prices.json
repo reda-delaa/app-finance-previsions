@@ -1,0 +1,17 @@
+{
+  "__type": "DataFrame",
+  "path": "artifacts_phase1/NGD.TO/p1_load_prices__df.csv",
+  "shape": [
+    754,
+    7
+  ],
+  "columns": [
+    "Open",
+    "High",
+    "Low",
+    "Close",
+    "Volume",
+    "Dividends",
+    "Stock Splits"
+  ]
+}

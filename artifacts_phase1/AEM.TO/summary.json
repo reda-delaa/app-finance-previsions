@@ -1,0 +1,8 @@
+{
+  "ticker": "AEM.TO",
+  "called_phase1_functions": true,
+  "history_ok": true,
+  "financials_ok": true,
+  "output_dir": "artifacts_phase1/AEM.TO",
+  "timestamp": "2025-09-11T15:30:24.300995+00:00"
+}

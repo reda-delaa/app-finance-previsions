@@ -1,0 +1,22 @@
+{
+  "currency": "CAD",
+  "dayHigh": 8.989999771118164,
+  "dayLow": 8.880000114440918,
+  "exchange": "TOR",
+  "fiftyDayAverage": 6.958400030136108,
+  "lastPrice": 8.96500015258789,
+  "lastVolume": 364080,
+  "marketCap": 7097608694.244141,
+  "open": 8.989999771118164,
+  "previousClose": 9.024999618530273,
+  "quoteType": "EQUITY",
+  "regularMarketPreviousClose": 9.029999732971191,
+  "shares": 791702016,
+  "tenDayAverageVolume": 1950030,
+  "threeMonthAverageVolume": 1659341,
+  "timezone": "America/Toronto",
+  "twoHundredDayAverage": 5.319150018692016,
+  "yearChange": 1.3153844902971588,
+  "yearHigh": 9.100000381469727,
+  "yearLow": 3.430000066757202
+}

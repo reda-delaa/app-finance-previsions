@@ -1,0 +1,15 @@
+{
+  "__type": "DataFrame",
+  "path": "artifacts_phase1/NGD.TO/p1_fetch_peer_multiples__df.csv",
+  "shape": [
+    6,
+    5
+  ],
+  "columns": [
+    "ticker",
+    "trailingPE",
+    "forwardPE",
+    "ps_ttm",
+    "ev_ebitda"
+  ]
+}

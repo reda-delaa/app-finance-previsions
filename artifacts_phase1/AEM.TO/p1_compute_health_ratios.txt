@@ -1,0 +1,1 @@
+HealthRatios(roe_pct=9.36610747310189, roic_pct=8.003417395111228, fcf_yield_pct=0.37534012413452883, net_debt_to_ebitda=2.307095641940314, current_ratio=1.7095901487635417, gross_margin_pct=35.10353070387958, operating_margin_pct=27.308279226023192, net_margin_pct=14.521949801337339)
