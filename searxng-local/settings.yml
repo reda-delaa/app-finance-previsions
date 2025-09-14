@@ -1,0 +1,43 @@
+server:
+  secret_key: "change_me_to_a_long_random_string"
+  bind_address: 0.0.0.0
+  port: 8080
+  method: POST
+  limiter: true
+  results_per_page: 10
+
+ui:
+  theme: simple
+  default_lang: en
+
+# DOI ok
+default_doi_resolver: doi.org
+doi_resolvers:
+  - doi.org
+
+outgoing:
+  request_timeout: 10.0
+  # useragent est utile pour certains moteurs
+  useragent_suffix: " (local-searxng)"
+
+engines:
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp
+    categories: general
+    timeout: 3.0
+    disabled: false
+
+  - name: duckduckgo lite
+    engine: duckduckgo
+    shortcut: ddg
+    categories: general
+    timeout: 3.0
+    disabled: false
+    # litte/lite frontends sont parfois plus permissifs
+
+  - name: brave
+    engine: brave
+    shortcut: br
+    categories: general
+    disabled: true     # passe à false si tu fournis une clé BRAVE_SEARCH_API_KEY

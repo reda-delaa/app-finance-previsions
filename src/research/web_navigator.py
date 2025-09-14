@@ -1,4 +1,7 @@
 # web_navigator.py — finance-first web search (SearXNG + optional Serper/Tavily)
+# ✅ Fixes: no-redirect JSON-only requests, engines optional, POST fallback,
+#           instance preflight+health cache, 429 cooldown (Retry-After), blacklist on 30x/403,
+#           disque: cache des instances "bonnes".
 
 import os
 import re
@@ -40,9 +43,7 @@ SEARXNG_BASE_PARAMS = {
 SEARXNG_NEWS_PARAMS = {
     **SEARXNG_BASE_PARAMS,
     "categories": "news",
-    # SearXNG supporte souvent “time_range” ∈ {day, week, month, year}
-    # Certaines instances l’ignorent => safe.
-    "time_range": "week",
+    "time_range": "week",  # ignoré par certaines instances → ok
 }
 
 SEARXNG_FALLBACK_INSTANCES = [
@@ -71,48 +72,162 @@ HARD_BLOCK = ("github.com", "stackoverflow.com", "stackexchange.com",
               "superuser.com", "serverfault.com")
 
 FINANCE_KEYWORDS = {
-    # résultats / guidance
     "earnings","results","guidance","outlook","quarter","q1","q2","q3","q4","fy",
     "revenue","sales","profit","margin","ebitda","eps","forecast","beat","miss",
-    # corporate / equity
     "offering","secondary","placement","buyback","dividend","downgrade","upgrade",
     "merger","acquisition","m&a","spin-off","spinoff","ipo","debt","notes",
-    # marchés / macro
     "inflation","cpi","ppi","jobs","fomc","rate","yields","housing","manufacturing",
 }
 
 # -----------------------------------------------------------------------------
-# HTTP helpers
+# Instance health cache / blacklist / cooldown (in-memory + disque)
+# -----------------------------------------------------------------------------
+_INSTANCE_HEALTH: Dict[str, Dict[str, float]] = {}  # {base: {"score": float, "last": ts}}
+_BLACKLIST_UNTIL: Dict[str, float] = {}             # {base: ts_until}
+BLACKLIST_TTL = 60 * 30  # 30 min
+HEALTH_DECAY_SEC = 60 * 60  # 1h
+
+# Cooldown 429
+_COOLDOWN_UNTIL: Dict[str, float] = {}              # {base: ts_until}
+RATE_LIMIT_COOLDOWN_DEFAULT = 180                   # 3 min
+
+# Cache disque des instances qui ont déjà bien répondu
+CACHE_PATH = os.path.expanduser("~/.cache/web_navigator_searx.json")
+
+def _load_cached_good_instances() -> list[str]:
+    try:
+        with open(CACHE_PATH, "r") as f:
+            data = json.load(f)
+        arr = data.get("good", [])
+        return [u.rstrip("/") for u in arr if isinstance(u, str)]
+    except Exception:
+        return []
+
+def _remember_good_instance(base: str):
+    try:
+        os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
+        cur = _load_cached_good_instances()
+        if base in cur:
+            cur.remove(base)
+        cur.insert(0, base)
+        cur = cur[:8]
+        with open(CACHE_PATH, "w") as f:
+            json.dump({"good": cur}, f)
+    except Exception:
+        pass
+
+def _merge_cached_first(instances: list[str]) -> list[str]:
+    seen, out = set(), []
+    for u in _load_cached_good_instances() + instances:
+        u = u.rstrip("/")
+        if u and u not in seen:
+            out.append(u)
+            seen.add(u)
+    return out
+
+def _in_cooldown(base: str) -> bool:
+    until = _COOLDOWN_UNTIL.get(base, 0)
+    if until and until > time.time():
+        return True
+    if until and until <= time.time():
+        _COOLDOWN_UNTIL.pop(base, None)
+    return False
+
+def _cooldown(base: str, seconds: float | None):
+    _COOLDOWN_UNTIL[base] = time.time() + (seconds or RATE_LIMIT_COOLDOWN_DEFAULT)
+    _boost_health(base, -0.2)
+
+def _health_score(base: str) -> float:
+    h = _INSTANCE_HEALTH.get(base)
+    if not h:
+        return 0.0
+    # léger decay dans le temps pour éviter le sur-apprentissage
+    age = max(time.time() - h.get("last", 0), 0)
+    decay = max(0.5, 1.0 - age / (HEALTH_DECAY_SEC * 2))
+    return h.get("score", 0.0) * decay
+
+def _boost_health(base: str, delta: float):
+    cur = _INSTANCE_HEALTH.get(base, {"score": 0.0, "last": 0.0})
+    cur["score"] = min(5.0, max(-5.0, cur.get("score", 0.0) + delta))
+    cur["last"] = time.time()
+    _INSTANCE_HEALTH[base] = cur
+
+def _blacklisted(base: str) -> bool:
+    until = _BLACKLIST_UNTIL.get(base, 0)
+    if until and until > time.time():
+        return True
+    if until and until <= time.time():
+        _BLACKLIST_UNTIL.pop(base, None)
+    return False
+
+def _blacklist(base: str, ttl: float = BLACKLIST_TTL):
+    _BLACKLIST_UNTIL[base] = time.time() + ttl
+    _boost_health(base, -0.8)
+
+# -----------------------------------------------------------------------------
+# HTTP helpers (fixed)
 # -----------------------------------------------------------------------------
 def _random_ua() -> str:
-    v = ".".join(str(random.randint(60, 125)) for _ in range(3))
+    v = ".".join(str(random.randint(100, 125)) for _ in range(3))
     chrome = f"Chrome/{v}"
-    safari = f"Safari/{random.randint(500, 600)}.{random.randint(1, 50)}"
+    safari = f"Safari/{random.randint(600, 620)}.{random.randint(1, 50)}"
     return f"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) {chrome} {safari}"
 
-def _request_json(url: str, params: dict | None = None, timeout=SEARXNG_TIMEOUT) -> dict:
-    headers = {
-        "User-Agent": _random_ua(),
-        "Accept": "application/json,text/*;q=0.4,*/*;q=0.1",
-        "Accept-Language": "en-US,en;q=0.7,fr;q=0.5",
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-    }
-    r = requests.get(url, params=params, headers=headers, timeout=timeout, allow_redirects=True)
+_JSON_HEADERS = {
+    "User-Agent": _random_ua(),
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.7,fr;q=0.5",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+}
+
+class RedirectError(Exception): ...
+class NonJSONError(Exception): ...
+class ForbiddenError(Exception): ...
+class TooManyRequestsError(Exception):
+    def __init__(self, retry_after: int | None = None):
+        super().__init__("429 Too Many Requests")
+        self.retry_after = retry_after or 0
+
+def _ensure_json_response(r: requests.Response) -> dict:
+    if r.status_code in (301, 302, 303, 307, 308):
+        raise RedirectError(f"{r.status_code} redirect to {r.headers.get('Location')}")
+    if r.status_code == 403:
+        raise ForbiddenError("403 Forbidden")
+    if r.status_code == 429:
+        ra = r.headers.get("Retry-After")
+        try:
+            ra_val = int(ra) if ra is not None else 0
+        except Exception:
+            ra_val = 0
+        raise TooManyRequestsError(retry_after=ra_val)
+
     r.raise_for_status()
     ctype = (r.headers.get("Content-Type") or "").lower()
-    if "application/json" not in ctype:
-        raise ValueError(f"non-json response (Content-Type={ctype or 'unknown'})")
-    return r.json()
+    # Certaines instances ne mettent pas le bon header mais renvoient du JSON valide
+    txt = (r.text or "").lstrip()
+    if "application/json" not in ctype and not (txt.startswith("{") or txt.startswith("[")):
+        raise NonJSONError(f"non-json response (Content-Type={ctype or 'unknown'})")
+    return json.loads(txt) if "application/json" not in ctype else r.json()
+
+def _request_json_get(url: str, params: dict | None = None, timeout=SEARXNG_TIMEOUT) -> dict:
+    r = requests.get(url, params=params, headers=_JSON_HEADERS, timeout=timeout, allow_redirects=False)
+    return _ensure_json_response(r)
+
+def _request_json_post(url: str, data: dict | None = None, timeout=SEARXNG_TIMEOUT) -> dict:
+    headers = dict(_JSON_HEADERS)
+    headers["Content-Type"] = "application/x-www-form-urlencoded"
+    r = requests.post(url, data=data or {}, headers=headers, timeout=timeout, allow_redirects=False)
+    return _ensure_json_response(r)
 
 # -----------------------------------------------------------------------------
-# SearXNG instance discovery
+# SearXNG instance discovery (+preflight)
 # -----------------------------------------------------------------------------
 def fetch_searxng_instances(logger_=None) -> list[str]:
     if logger_ is None:
         logger_ = logger
     try:
-        data = _request_json(SEARXNG_FETCH_URL, timeout=(6, 12))
+        data = _request_json_get(SEARXNG_FETCH_URL, timeout=(6, 12))
         inst = []
         if isinstance(data, dict):
             if "instances" in data and isinstance(data["instances"], dict):
@@ -134,47 +249,121 @@ def fetch_searxng_instances(logger_=None) -> list[str]:
         if inst:
             logger_.debug(f"SearXNG public instances fetched: {len(inst)}")
             logger_.debug(f"Sample: {inst[:5]}")
-            return inst
     except Exception as e:
         logger_.debug(f"searx.space fetch error: {e}")
+        inst = []
 
-    fallback = [u.rstrip("/") for u in (SEARXNG_KNOWN_JSON_OK + SEARXNG_FALLBACK_INSTANCES)]
-    random.shuffle(fallback)
-    logger_.info(f"Using fallback SearXNG instances: {fallback[:5]}...")
-    return fallback
+    if not inst:
+        fallback = [u.rstrip("/") for u in (SEARXNG_KNOWN_JSON_OK + SEARXNG_FALLBACK_INSTANCES)]
+        random.shuffle(fallback)
+        logger_.info(f"Using fallback SearXNG instances: {fallback[:5]}...")
+        inst = fallback
+
+    # Ordonner par santé + préférer celles du cache
+    inst_scored = sorted(inst, key=lambda u: _health_score(u), reverse=True)
+    inst_scored = _merge_cached_first(inst_scored)
+
+    tested: list[str] = []
+    budget = 10  # nombre max d'instances à ping
+    for base in inst_scored:
+        if len(tested) >= 2:  # 1–2 OK suffisent
+            break
+        if _blacklisted(base) or _in_cooldown(base):
+            continue
+        if _preflight_instance(base, logger_):
+            tested.append(base)
+        budget -= 1
+        if budget <= 0:
+            break
+
+    # Si rien, renvoyer un petit lot brut non testés (hors cooldown/blacklist)
+    if not tested:
+        fallback_pick = [u for u in inst_scored if not _blacklisted(u) and not _in_cooldown(u)][:6]
+        return fallback_pick
+    return tested
+
+def _preflight_instance(base: str, logger_) -> bool:
+    """GET minimal /search?format=json&q=q&count=1, sans redirect & JSON only.
+       429 => cooldown; 403/redirect => blacklist; non-JSON => demi-blacklist."""
+    url = f"{base.rstrip('/')}/search"
+    try:
+        params = {"format": "json", "q": "q", "count": 1, "language": "en"}
+        r = requests.get(url, params=params, headers=_JSON_HEADERS, timeout=(4, 8), allow_redirects=False)
+        data = _ensure_json_response(r)
+        if isinstance(data, dict) and "results" in data:
+            _boost_health(base, +0.6)
+            return True
+    except TooManyRequestsError as e:
+        logger_.debug(f"Preflight 429 on {base} (Retry-After={e.retry_after})")
+        _cooldown(base, e.retry_after or RATE_LIMIT_COOLDOWN_DEFAULT)
+        return False
+    except RedirectError as e:
+        logger_.debug(f"Preflight redirect on {base}: {e}")
+        _blacklist(base, ttl=BLACKLIST_TTL)
+    except ForbiddenError:
+        logger_.debug(f"Preflight 403 on {base}")
+        _blacklist(base, ttl=BLACKLIST_TTL)
+    except NonJSONError as e:
+        logger_.debug(f"Preflight non-JSON on {base}: {e}")
+        _blacklist(base, ttl=BLACKLIST_TTL / 2)
+    except Exception as e:
+        logger_.debug(f"Preflight error on {base}: {e}")
+        _boost_health(base, -0.3)
+    return False
 
 # -----------------------------------------------------------------------------
-# SearXNG search core
+# SearXNG search core (fixed ordering, POST fallback, cooldown/blacklist)
 # -----------------------------------------------------------------------------
 def _search_on_instances(base_params: dict, query: str, num: int, engines: Iterable[str], logger_) -> list[dict]:
-    engines = list(engines)
-    engines_param = ",".join(engines)
-    instances = fetch_searxng_instances(logger_=logger_)
+    engines = list(engines or [])
+    engines_param = ",".join(engines) if engines else ""
+    instances = _merge_cached_first(fetch_searxng_instances(logger_=logger_))
 
     for base in instances:
-        url = f"{base}/search"
-        # try with engines
-        try:
-            params = dict(base_params, q=query, count=min(max(num, 1), 50), engines=engines_param)
-            logger_.debug(f"SearXNG query on {base}: {query} | engines={engines_param}")
-            data = _request_json(url, params=params)
-            items = _extract_items(data)
-            if items:
-                return items
-        except Exception as e:
-            logger_.debug(f"SearXNG error on {base} (with engines): {e}")
-
-        # retry without engines
-        try:
-            params = dict(base_params, q=query, count=min(max(num, 1), 50))
-            data = _request_json(url, params=params)
-            items = _extract_items(data)
-            if items:
-                logger_.debug(f"Succeeded on {base} without engines param.")
-                return items
-        except Exception as e2:
-            logger_.debug(f"SearXNG error on {base} (no engines): {e2}")
+        if _blacklisted(base) or _in_cooldown(base):
+            logger_.debug(f"Skipping unavailable instance: {base}")
             continue
+
+        url = f"{base}/search"
+        modes = (("GET", False), ("GET", True), ("POST", False))
+        for method, with_engines in modes:
+            try:
+                params = dict(base_params, q=query, count=min(max(num, 1), 50))
+                if with_engines and engines_param:
+                    params["engines"] = engines_param
+
+                if method == "GET":
+                    data = _request_json_get(url, params=params)
+                else:
+                    data = _request_json_post(url, data=params)
+
+                items = _extract_items(data)
+                if items:
+                    _boost_health(base, +0.4)
+                    _remember_good_instance(base)
+                    if method == "POST":
+                        logger_.debug(f"Succeeded on {base} via POST.")
+                    return items
+
+            except TooManyRequestsError as e:
+                logger_.debug(f"SearXNG 429 on {base} ({'with engines' if with_engines else 'no engines'}; Retry-After={e.retry_after})")
+                _cooldown(base, e.retry_after or RATE_LIMIT_COOLDOWN_DEFAULT)
+
+            except RedirectError as e:
+                logger_.debug(f"SearXNG redirect on {base}: {e}")
+                _blacklist(base)
+
+            except ForbiddenError:
+                logger_.debug(f"SearXNG 403 on {base}")
+                _blacklist(base)
+
+            except NonJSONError as e:
+                logger_.debug(f"SearXNG non-JSON on {base}: {e}")
+                _blacklist(base, ttl=BLACKLIST_TTL / 2)
+
+            except Exception as e:
+                logger_.debug(f"SearXNG error on {base}: {e}")
+                _boost_health(base, -0.1)
 
     logger_.warning("All SearXNG instances failed.")
     return []
@@ -272,7 +461,6 @@ def _finance_queries(symbol: str | None, company: str | None, topic: str | None)
     t = (topic or "").strip()
 
     qs = []
-    # très direct autour d’un titre
     if c:
         qs += [
             f'{c} stock news',
@@ -286,7 +474,6 @@ def _finance_queries(symbol: str | None, company: str | None, topic: str | None)
             f'{s} earnings OR results OR guidance',
             f'{s} peers OR competitors',
         ]
-    # macro / économie générique
     if t:
         qs += [t, f'{t} latest news', f'{t} market news']
     return qs or [t or "markets news US"]
@@ -305,7 +492,7 @@ def finance_search(
     queries = _finance_queries(symbol, company, topic)
     agg: List[dict] = []
 
-    # 1) SearXNG (news category + engines)
+    # 1) SearXNG (news category, essai GET sans engines puis avec, puis POST)
     engines = SEARXNG_DEFAULT_ENGINES
     for q in queries:
         items = _search_on_instances(SEARXNG_NEWS_PARAMS, q, num=min(10, num), engines=engines, logger_=logger_)
@@ -324,11 +511,11 @@ def finance_search(
     # 3) fallback Serper/Tavily si dispo
     if len(ranked) < max(3, num // 2):
         try:
-            from secrets_local import SERPER_API_KEY as _SERPER  # type: ignore
+            from src.secrets_local import SERPER_API_KEY as _SERPER  # type: ignore
         except Exception:
             _SERPER = os.getenv("SERPER_API_KEY", "")
         try:
-            from secrets_local import TAVILY_API_KEY as _TAVILY  # type: ignore
+            from src.secrets_local import TAVILY_API_KEY as _TAVILY  # type: ignore
         except Exception:
             _TAVILY = os.getenv("TAVILY_API_KEY", "")
 

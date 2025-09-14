@@ -1,0 +1,38 @@
+{
+  "models": [
+    {
+      "model": "DeepSeek-R1",
+      "caps": [
+        "text",
+        "reasoning"
+      ]
+    },
+    {
+      "model": "Qwen3-235B",
+      "caps": [
+        "text"
+      ]
+    },
+    {
+      "model": "Llama-3-70b",
+      "caps": [
+        "text",
+        "reasoning"
+      ]
+    }
+  ],
+  "tests": {
+    "DeepSeek-R1": {
+      "pass": 10,
+      "fail": 2
+    },
+    "Qwen3-235B": {
+      "pass": 5,
+      "fail": 5
+    },
+    "Llama-3-70b": {
+      "pass": 8,
+      "fail": 2
+    }
+  }
+}

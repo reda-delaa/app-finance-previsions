@@ -1,0 +1,9 @@
+{
+  "features": {
+    "news_count": 100,
+    "mean_sentiment": -0.05,
+    "flag_earnings": 1,
+    "flag_sanctions": 1,
+    "sector_energy": 16
+  }
+}

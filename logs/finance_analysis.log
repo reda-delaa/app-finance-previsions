@@ -1,0 +1,5 @@
+2025-09-12 18:21:02,097 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-12 20:10:06,082 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-12 20:10:06,089 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-12 20:10:35,662 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-12 20:10:35,662 - finance_analysis - WARNING - Config not initialized at import time: Missing required configuration values

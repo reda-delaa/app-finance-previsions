@@ -1,0 +1,28 @@
+{
+  "features": {
+    "news_count": 61,
+    "mean_sentiment": 0.0492,
+    "pos_ratio": 0.098,
+    "neg_ratio": 0.049,
+    "unique_sources": 3,
+    "flag_earnings": 1,
+    "flag_mna": 0,
+    "flag_sanctions": 1,
+    "flag_geopolitics": 1,
+    "flag_energy_shock": 1,
+    "sector_energy": 2,
+    "sector_banks": 1,
+    "sector_defense": 1,
+    "sector_tech": 2
+  },
+  "market": {
+    "dxy_symbol": "UUP",
+    "dxy_wow": -0.04,
+    "brent_symbol": "BZ=F",
+    "brent_wow": 2.09,
+    "eurostoxx_symbol": "^STOXX50E",
+    "eurostoxx_wow": 1.36,
+    "ust10y_bp": -0.0,
+    "asof_utc": "2025-09-13T01:25:45Z"
+  }
+}

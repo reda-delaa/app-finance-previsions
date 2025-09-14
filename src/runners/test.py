@@ -1,7 +1,7 @@
 # test_batch.py
 import json
 import logging
-from peers_finder import get_peers_auto
+from src.research.peers_finder import get_peers_auto
 
 # 20 tickers récents du S&P500 (fallback si Wikipédia marche pas)
 tickers = [

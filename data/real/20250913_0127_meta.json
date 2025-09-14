@@ -1,0 +1,22 @@
+{
+  "attachments": [
+    "FX: DXY -0.04% WoW; Brent 2.09% WoW; UST10Y -0.0bp; EuroStoxx 1.36% WoW."
+  ],
+  "notes": "Real dataset built from live RSS/Yahoo. Tags & sentiment are heuristic.",
+  "tickers_used": {
+    "DXY": "^DXY",
+    "DXY_ALT": "UUP",
+    "BRENT": "BZ=F",
+    "WTI": "CL=F",
+    "UST10Y": "^TNX",
+    "EUROSTOXX": "^STOXX50E",
+    "EUROSTOXX_ALT": "FEZ"
+  },
+  "sources_used": [
+    "https://www.reuters.com/finance/markets/rss",
+    "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+    "https://www.ft.com/markets?format=rss",
+    "https://www.economist.com/finance-and-economics/rss.xml",
+    "https://www.cnbc.com/id/100003114/device/rss/rss.html"
+  ]
+}

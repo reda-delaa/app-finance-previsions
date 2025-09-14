@@ -1,0 +1,44 @@
+services:
+  searxng_a:
+    image: searxng/searxng:latest
+    container_name: searxng_a
+    restart: unless-stopped
+    volumes:
+      - ./settings.yml:/etc/searxng/settings.yml:ro
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --post-data='q=ping&format=json&count=1' http://127.0.0.1:8080/search >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  searxng_b:
+    image: searxng/searxng:latest
+    container_name: searxng_b
+    restart: unless-stopped
+    volumes:
+      - ./settings.yml:/etc/searxng/settings.yml:ro
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --post-data='q=ping&format=json&count=1' http://127.0.0.1:8080/search >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  searxng_front:
+    image: nginx:alpine
+    container_name: searxng_front
+    depends_on:
+      searxng_a:
+        condition: service_started
+      searxng_b:
+        condition: service_started
+    ports:
+      - "8888:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
