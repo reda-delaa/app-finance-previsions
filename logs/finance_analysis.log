@@ -24,3 +24,9 @@
 2025-09-14 12:39:48,194 - finance_analysis - WARNING - Missing required configuration: At least one financial API key is required
 2025-09-14 13:16:33,536 - finance_analysis - ERROR - Missing required configuration: 'Config' object has no attribute 'alpha_vantage_key'
 2025-09-14 13:16:33,536 - finance_analysis - WARNING - Config not initialized at import time: 'Config' object has no attribute 'alpha_vantage_key'
+2025-09-14 15:55:46,102 - finance_analysis - ERROR - Missing required configuration: 'Config' object has no attribute 'alpha_vantage_key'
+2025-09-14 15:55:46,103 - finance_analysis - WARNING - Config not initialized at import time: 'Config' object has no attribute 'alpha_vantage_key'
+2025-09-14 15:55:50,167 - finance_analysis - ERROR - Missing required configuration: 'Config' object has no attribute 'alpha_vantage_key'
+2025-09-14 15:55:50,167 - finance_analysis - WARNING - Config not initialized at import time: 'Config' object has no attribute 'alpha_vantage_key'
+2025-09-14 15:58:30,347 - finance_analysis - ERROR - Missing required configuration: 'Config' object has no attribute 'alpha_vantage_key'
+2025-09-14 15:58:30,347 - finance_analysis - WARNING - Config not initialized at import time: 'Config' object has no attribute 'alpha_vantage_key'

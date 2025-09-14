@@ -15,14 +15,13 @@ Author: you
 """
 
 from __future__ import annotations
-import os, re, sys, json, hashlib, time, math, argparse, datetime as dt
+import os, re, sys, json, hashlib, argparse, datetime as dt
 from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional, Tuple, Iterable
+from typing import List, Dict, Any, Optional
 from collections import defaultdict, Counter
-from pathlib import Path
 
 from ..taxonomy.news_taxonomy import tag_sectors, classify_event, tag_geopolitics
-from ..core.io_utils import read_jsonl, write_jsonl, Cache
+from ..core.io_utils import write_jsonl
 
 # ---- Optional external deps (graceful fallback) ----
 try:
@@ -64,20 +63,31 @@ except Exception:
 # ---- Optional internal modules (use if present) ----
 # nlp_enrich: expected to offer summarize(text), translate(text, target_lang), sentiment(text), ner(text) ...
 try:
-    import nlp_enrich  # your file
+    from ..research.nlp_enrich import summarize, translate, sentiment, ner
+    nlp_enrich = True
 except Exception:
+    summarize = None
+    translate = None
+    sentiment = None
+    ner = None
     nlp_enrich = None
 
 # news_taxonomy: expected to provide sector/event lexicons or tagger
 try:
-    import news_taxonomy  # your file
+    from ..taxonomy.news_taxonomy import tag_sectors, classify_event, tag_geopolitics
+    news_taxonomy = True
 except Exception:
+    tag_sectors = None
+    classify_event = None
+    tag_geopolitics = None
     news_taxonomy = None
 
 # stock utilities (ticker mapping) if available
 try:
-    import stock  # your file
+    from ..core.stock_utils import guess_ticker  # assuming this exists or create it
+    stock = True
 except Exception:
+    guess_ticker = None
     stock = None
 
 
@@ -198,8 +208,8 @@ def strip_html(txt: str) -> str:
         return BeautifulSoup(txt, "html.parser").get_text(" ", strip=True)
     return re.sub("<[^>]*>", " ", txt)
 
-def sha1(s: str) -> str:
-    return hashlib.sha1(s.encode("utf-8", errors="ignore")).hexdigest()
+def sha256(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8", errors="ignore")).hexdigest()
 
 def domain_of(url: str) -> str:
     m = re.match(r"^https?://([^/]+)/?", url or "")
@@ -322,8 +332,8 @@ def dedup_items(items: List[Dict[str, Any]], source: str) -> List[Dict[str, Any]
     seen = set()
     out = []
     for it in items:
-        h = sha1(f"{source}|{it['title']}|{it['published']}")
-        if h in seen: 
+        h = sha256(f"{source}|{it['title']}|{it['published']}")
+        if h in seen:
             continue
         seen.add(h)
         it["_id"] = h
@@ -548,7 +558,7 @@ def run_pipeline(regions: List[str],
         try:
             raw_items = fetch_feed(u, per_source_cap=per_source_cap)
             raw_items = dedup_items(raw_items, source=u)
-        except Exception as e:
+        except Exception:
             # continue on errors
             continue
 

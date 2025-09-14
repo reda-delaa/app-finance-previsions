@@ -40,7 +40,8 @@ def _compile_words(words: Iterable[str]) -> re.Pattern:
     safe = [re.escape(w.lower()) for w in words if w.strip()]
     if not safe:
         return re.compile(r"^$")  # never matches
-    return re.compile(rf"(?<!\w)({"|".join(safe)})(?!\w)", re.IGNORECASE)
+    pattern = r"(?<!\w)(" + "|".join(safe) + r")(?!\w)"
+    return re.compile(pattern, re.IGNORECASE)
 
 
 # --------- Taxonomies ---------

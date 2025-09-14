@@ -1,201 +1,430 @@
 # proxy.py
-import os, re, json, time, uuid, logging
-from typing import Any, Dict, List, Optional, Tuple
+# OpenAI-compatible proxy au-dessus de g4f, avec:
+# - Streaming SSE
+# - Tools (function calling) basiques (passe-through / JSON)
+# - Découverte dynamique des modèles "working" (GitHub) + cache local
+# - Fallbacks intelligents par TIER (du plus puissant au moins puissant)
+#
+# Env utiles:
+#   G4F_WORKING_URL   (override de l’URL GitHub)
+#   G4F_WORKING_CACHE (chemin du cache local, défaut: .g4f_working.txt)
+#   G4F_FETCH_TIMEOUT (seconds, défaut: 6)
+#
+# Lancement:
+#   pip install flask flask-cors requests g4f
+#   python proxy.py
+#
+# Intégration Cline:
+#   Base URL: http://127.0.0.1:4000/v1
+#   Model: p.ex. "qwen3-coder-480b", "deepseek-prover", "deepseek-r1-distill-70b",
+#           "llama-3.3-70b", "phi-4-reasoning-plus", "deepseek-v3", "qwen3-235b"
+
+import os
+import re
+import json
+import uuid
+import time
+from typing import Dict, List, Tuple, Optional, Iterable
+
+import requests
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
-
-import g4f  # pip install g4f==0.2.9.9  (ou ta version fonctionnelle)
+import g4f
 
 app = Flask(__name__)
 CORS(app)
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("g4f-proxy")
 
-# =========================
-# Modèle par défaut (puissant)
-# =========================
-# Choisis d’abord un modèle costaud présent dans ta liste working.
-# On met une registry pour alias OpenAI -> g4f (provider/model)
-MODEL_REGISTRY = {
-    # alias OpenAI-ish           (provider, g4f_model)
-    "gpt-4o-mini":               ("AnyProvider", "deepseek-v3"),
-    "gpt-4.1":                   ("AnyProvider", "deepseek-v3"),
-    "gpt-4.1-mini":              ("AnyProvider", "deepseek-v3"),
-    "gpt-4":                     ("AnyProvider", "llama-3.3-70b"),
-    "qwen-max":                  ("Qwen", "qwen-max"),
-    "deepseek-v3":               ("AnyProvider", "deepseek-v3"),
-    "sonar-pro":                 ("PerplexityLabs", "sonar-pro"),
-}
+# ---------------------------------------------------------------------------
+# 1) Fetch & parse "working models" (provider|model|modality) at startup
+# ---------------------------------------------------------------------------
 
-DEFAULT_MODEL_ID = os.getenv("OPENAI_COMPAT_MODEL", "gpt-4o-mini")
+DEFAULT_WORKING_URL = (
+    "https://raw.githubusercontent.com/maruf009sultan/g4f-working/main/working/working_results.txt"
+)
+WORKING_URL   = os.getenv("G4F_WORKING_URL", DEFAULT_WORKING_URL)
+WORKING_CACHE = os.getenv("G4F_WORKING_CACHE", ".g4f_working.txt")
+FETCH_TIMEOUT = float(os.getenv("G4F_FETCH_TIMEOUT", "6"))
 
-def now_unix() -> int:
-    return int(time.time())
-
-def gen_id(prefix: str) -> str:
-    return f"{prefix}-{uuid.uuid4().hex}"
-
-# =========================
-# Helpers tools & parsing
-# =========================
-FENCED_JSON = re.compile(r"```json\s*(\{.*?\})\s*```", re.S)
-
-def extract_tool_json(text: str) -> Optional[Dict[str, Any]]:
-    """
-    Essaie de récupérer un bloc JSON (tool call) soit en JSON brut,
-    soit dans un code fence ```json ...```.
-    """
-    if not text:
-        return None
-    m = FENCED_JSON.search(text)
-    candidate = m.group(1) if m else text
+def _load_cached_working() -> Optional[str]:
     try:
-        obj = json.loads(candidate)
-        # attendu: {"name": "...", "arguments": {...}}
-        if isinstance(obj, dict) and "name" in obj and "arguments" in obj:
-            return obj
-        return None
+        if os.path.exists(WORKING_CACHE):
+            with open(WORKING_CACHE, "r", encoding="utf-8") as f:
+                return f.read()
+    except Exception:
+        pass
+    return None
+
+def _save_cached_working(txt: str) -> None:
+    try:
+        with open(WORKING_CACHE, "w", encoding="utf-8") as f:
+            f.write(txt)
+    except Exception:
+        pass
+
+def _fetch_working_text() -> Optional[str]:
+    try:
+        r = requests.get(WORKING_URL, timeout=FETCH_TIMEOUT)
+        if r.ok and r.text:
+            return r.text
     except Exception:
         return None
+    return None
 
-def openai_message(role: str, content: Optional[str], tool_calls: Optional[List[Dict]] = None) -> Dict:
-    msg = {"role": role}
-    if content is not None:
-        msg["content"] = content
-    if tool_calls:
-        msg["tool_calls"] = tool_calls
-    return msg
+def _parse_working(text: str) -> Dict[str, List[str]]:
+    """
+    Parse lignes type: Provider|Model|modality
+    Retourne: registry[model] = [providers...]
+    """
+    registry: Dict[str, List[str]] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or "|" not in line:
+            continue
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) < 2:
+            continue
+        provider, model = parts[0], parts[1]
+        if not provider or not model:
+            continue
+        registry.setdefault(model, [])
+        if provider not in registry[model]:
+            registry[model].append(provider)
+    return registry
 
-# =========================
-# /health & /v1/models
-# =========================
-@app.get("/health")
-def health():
-    return {"ok": True, "time": now_unix()}, 200
+# Charge registre dynamique (avec cache & fallback)
+RAW = _fetch_working_text() or _load_cached_working()
+if RAW is None:
+    # Fallback minimal si tout échoue
+    RAW = """DeepInfra|deepseek-ai/DeepSeek-Prover-V2-671B|text
+DeepInfra|Qwen/Qwen3-Coder-480B-A35B-Instruct-Turbo|text
+DeepInfra|deepseek-ai/DeepSeek-R1-Distill-Llama-70B|text
+DeepInfra|meta-llama/Llama-3.3-70B-Instruct|text
+DeepInfra|microsoft/phi-4-reasoning-plus|text
+DeepInfra|deepseek-ai/DeepSeek-V3|text
+DeepInfra|Qwen/Qwen3-235B-A22B-Instruct-2507|text
+PerplexityLabs|sonar-pro|text
+"""
+else:
+    _save_cached_working(RAW)
 
-@app.get("/v1/models")
-def list_models():
-    data = []
-    created = now_unix()
-    for mid in sorted(MODEL_REGISTRY.keys()):
-        data.append({"id": mid, "object": "model", "created": created, "owned_by": "g4f-proxy"})
-    return jsonify({"object": "list", "data": data}), 200
+MODEL_REGISTRY: Dict[str, List[str]] = _parse_working(RAW)
 
-@app.get("/v1/models/<mid>")
-def get_model(mid: str):
-    if mid not in MODEL_REGISTRY:
-        return jsonify({"error": {"message": f"Unknown model '{mid}'", "type": "not_found"}}), 404
-    return jsonify({"id": mid, "object": "model", "created": now_unix(), "owned_by": "g4f-proxy"}), 200
+def _compose_model_string(provider: str, model: str) -> str:
+    # g4f accepte "Provider:Model" ou parfois juste "model" (AnyProvider)
+    return f"{provider}:{model}" if provider and provider != "AnyProvider" else model
 
-# =========================
-# Appel g4f (avec timeout+retry)
-# =========================
-def call_g4f(model_id: str, prompt: str, temperature: float, max_tokens: Optional[int]) -> Tuple[str, Dict]:
-    provider, g4f_model = MODEL_REGISTRY.get(model_id, MODEL_REGISTRY[DEFAULT_MODEL_ID])
-    retries = 2
-    last_err = None
-    for attempt in range(retries + 1):
-        try:
-            # g4f accepte généralement messages=[...] ; certains backends préfèrent prompt=...
-            resp = g4f.ChatCompletion.create(
-                model=g4f_model,
-                provider=provider,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=temperature,
-            )
-            text = str(resp)
-            return text, {"provider": provider, "g4f_model": g4f_model, "attempt": attempt}
-        except Exception as e:
-            last_err = str(e)
-            log.warning("g4f error (try %s/%s): %s", attempt+1, retries+1, last_err)
-            time.sleep(0.6 * (attempt + 1))
-    raise RuntimeError(f"g4f failed after retries: {last_err}")
+# ---------------------------------------------------------------------------
+# 2) Alias puissants + Tiers (du + fort au - fort)
+#    Pour chaque alias, on essaie TOUS les providers qui exposent le model cible,
+#    puis on passe au model suivant du tier.
+# ---------------------------------------------------------------------------
 
-def build_prompt_from_messages(messages: List[Dict], tools: List[Dict]) -> str:
-    # On garde le format ‘chatml rustique’ + instructions tools si fournis.
-    parts = []
+# Tiers ordonnés pour chaque “usage”
+TIERS: Dict[str, List[str]] = {
+    # Code pur & complexe
+    "qwen3-coder-480b": [
+        "Qwen/Qwen3-Coder-480B-A35B-Instruct-Turbo",
+        "deepseek-ai/DeepSeek-V3",
+        "deepseek-ai/DeepSeek-R1-0528",
+    ],
+    "deepseek-prover": [
+        "deepseek-ai/DeepSeek-Prover-V2-671B",
+        "deepseek-ai/DeepSeek-V3",
+        "Qwen/Qwen3-235B-A22B-Instruct-2507",
+    ],
+    # Mix code + raisonnement
+    "deepseek-r1-distill-70b": [
+        "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+        "deepseek-ai/DeepSeek-V3",
+        "meta-llama/Llama-3.3-70B-Instruct",
+    ],
+    "llama-3.3-70b": [
+        "meta-llama/Llama-3.3-70B-Instruct",
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "deepseek-ai/DeepSeek-V3",
+    ],
+    # Raisonnement logique poussé
+    "phi-4-reasoning-plus": [
+        "microsoft/phi-4-reasoning-plus",
+        "deepseek-ai/DeepSeek-Prover-V2-671B",
+        "deepseek-ai/DeepSeek-V3",
+    ],
+    # Généralistes solides
+    "deepseek-v3": [
+        "deepseek-ai/DeepSeek-V3",
+        "deepseek-ai/DeepSeek-R1-0528",
+        "Qwen/Qwen3-235B-A22B-Instruct-2507",
+    ],
+    "qwen3-235b": [
+        "Qwen/Qwen3-235B-A22B-Instruct-2507",
+        "deepseek-ai/DeepSeek-V3",
+        "deepseek-ai/DeepSeek-R1-0528",
+    ],
+    "sonar-pro": [
+        "sonar-pro",
+        "sonar-reasoning-pro",
+        "deepseek-ai/DeepSeek-V3",
+    ],
+}
+
+# Fallback générique si l’alias n’est pas connu
+GENERIC_TIER = [
+    "deepseek-ai/DeepSeek-V3",
+    "meta-llama/Llama-3.3-70B-Instruct",
+    "Qwen/Qwen3-235B-A22B-Instruct-2507",
+]
+
+def _build_chain(alias: str) -> List[str]:
+    """
+    Retourne une liste de candidates "Provider:Model" ordonnée:
+    - Pour chaque modèle du TIER, on ajoute tous les providers qui l’exposent (depuis MODEL_REGISTRY).
+    - Si rien, on essaie le prochain modèle du TIER.
+    - Si alias inconnu, on applique GENERIC_TIER.
+    """
+    alias = alias.strip().lower()
+    tier_models = TIERS.get(alias, GENERIC_TIER)
+    chain: List[str] = []
+    seen = set()
+    for model in tier_models:
+        providers = MODEL_REGISTRY.get(model, [])
+        if not providers:
+            continue
+        for prov in providers:
+            key = (prov, model)
+            if key in seen:
+                continue
+            seen.add(key)
+            chain.append(_compose_model_string(prov, model))
+    # Si la chaîne est vide, dernier filet de sécurité
+    if not chain:
+        chain = [
+            _compose_model_string(prov, model)
+            for model in GENERIC_TIER
+            for prov in MODEL_REGISTRY.get(model, [])
+        ] or ["AnyProvider:gpt-4o-mini"]
+    return chain
+
+# ---------------------------------------------------------------------------
+# 3) OpenAI-compatible helpers (SSE, message shaping, tools passthrough)
+# ---------------------------------------------------------------------------
+
+def _now_unix() -> int:
+    return int(time.time())
+
+def _new_id(prefix: str = "cmpl") -> str:
+    return f"{prefix}-{uuid.uuid4().hex}"
+
+def _strip_md_fences(s: str) -> str:
+    return re.sub(r"^```(?:json)?\s*|\s*```$", "", s.strip(), flags=re.DOTALL)
+
+def _shape_messages_to_prompt(messages: List[Dict]) -> str:
+    # Compacte messages en un seul prompt “user” pour g4f (certains providers préfèrent)
+    out = []
     for m in messages:
         role = m.get("role", "user")
         content = m.get("content", "")
+        if isinstance(content, list):
+            content = " ".join(
+                (prt.get("text") or "") if isinstance(prt, dict) else str(prt)
+                for prt in content
+            )
         if role == "system":
-            parts.append(f"System: {content}")
+            out.append(f"[SYSTEM]\n{content}\n")
+        elif role == "user":
+            out.append(f"User: {content}")
         elif role == "assistant":
-            parts.append(f"Assistant: {content}")
-        elif role == "tool":
-            name = m.get("name") or m.get("tool_name") or "tool"
-            parts.append(f"Tool[{name}]: {content}")
+            out.append(f"Assistant: {content}")
         else:
-            parts.append(f"User: {content}")
-    if tools:
-        parts.append(
-            "IMPORTANT: If a function call is needed, OUTPUT A SINGLE JSON object with keys "
-            "`name` and `arguments` (arguments is a JSON object). Do not add prose with the JSON."
-        )
-        parts.append("TOOLS=" + json.dumps(tools, ensure_ascii=False))
-    return "\n".join(parts)
+            out.append(f"{role}: {content}")
+    return "\n".join(out)
 
-# =========================
-# /v1/chat/completions
-# =========================
-@app.post("/v1/chat/completions")
-def chat_completions():
+def _sse_event(payload: Dict) -> str:
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+def _tool_call_from_text(txt: str) -> Optional[Dict]:
+    """
+    Détecte un JSON tool_call renvoyé brut par le modèle et le transforme en
+    OpenAI 'tool_calls'. On tolère les ```json ... ```
+    """
+    s = _strip_md_fences(txt)
     try:
-        data = request.get_json(force=True, silent=False) or {}
-    except Exception:
-        return jsonify({"error": {"message": "Invalid JSON body", "type": "bad_request"}}), 400
-
-    model_id = data.get("model") or DEFAULT_MODEL_ID
-    messages = data.get("messages") or []
-    tools = data.get("tools") or []
-    tool_choice = (data.get("tool_choice") or "auto")
-    temperature = float(data.get("temperature", 0.2))
-    max_tokens = data.get("max_tokens", None)
-    stream = bool(data.get("stream", False))
-
-    if not isinstance(messages, list) or not messages:
-        return jsonify({"error": {"message": "`messages` must be a non-empty array", "type": "bad_request"}}), 400
-
-    prompt = build_prompt_from_messages(messages, tools)
-
-    def make_response_payload(content: Optional[str], tool_calls: Optional[List[Dict]]):
-        return {
-            "id": gen_id("cmpl"),
-            "object": "chat.completion",
-            "created": now_unix(),
-            "model": model_id,
-            "choices": [{
-                "index": 0,
-                "message": openai_message("assistant", content, tool_calls),
-                "finish_reason": "stop" if not tool_calls else "tool_calls"
-            }],
-            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-        }
-
-    # Pas de streaming SSE complet ici (OpenAI delta). On renvoie du JSON final (Cline accepte).
-    try:
-        text, meta = call_g4f(model_id, prompt, temperature, max_tokens)
-    except Exception as e:
-        log.exception("g4f fatal error")
-        return jsonify({"error": {"message": f"Upstream error: {e}", "type": "upstream"}}), 502
-
-    tool_calls = None
-    if tools and tool_choice != "none":
-        tc = extract_tool_json(text)
-        if tc:
-            tool_calls = [{
-                "id": gen_id("call"),
+        obj = json.loads(s)
+        if isinstance(obj, dict) and "name" in obj and "arguments" in obj:
+            return {
+                "id": f"call_{uuid.uuid4().hex[:8]}",
                 "type": "function",
-                "function": {"name": tc["name"], "arguments": json.dumps(tc["arguments"], ensure_ascii=False)}
-            }]
-            text = None  # OpenAI renvoie souvent content=None lorsque tool_calls est présent
+                "function": {
+                    "name": obj["name"],
+                    "arguments": json.dumps(obj["arguments"], ensure_ascii=False),
+                },
+            }
+    except Exception:
+        pass
+    return None
 
-    return jsonify(make_response_payload(text, tool_calls)), 200
+# ---------------------------------------------------------------------------
+# 4) Chat Completions endpoint
+# ---------------------------------------------------------------------------
 
-# =========================
-# Entrée
-# =========================
+@app.route("/v1/chat/completions", methods=["POST"])
+def chat_completions():
+    data = request.get_json(force=True, silent=True) or {}
+    messages: List[Dict] = data.get("messages", [])
+    stream: bool = bool(data.get("stream", False))
+    model_alias: str = (data.get("model") or "deepseek-v3").strip()
+    tools = data.get("tools") or []          # transmis au LLM via consigne
+    tool_choice = data.get("tool_choice")    # "auto" | {"type":"function","function":{"name":...}} | None
+    temperature = data.get("temperature", 0.3)
+    top_p = data.get("top_p", 1.0)
+    max_tokens = data.get("max_tokens", None)
+
+    # 1) Construire instruction (messages -> prompt unique)
+    prompt = _shape_messages_to_prompt(messages)
+    if tools:
+        prompt += "\n\n[TOOLS]\nTu peux appeler des fonctions en renvoyant STRICTEMENT un JSON {\"name\":\"...\",\"arguments\":{...}}.\n"
+        prompt += "Tools:\n" + json.dumps(tools, ensure_ascii=False, indent=2)
+
+    # 2) Construire la chaîne de providers/models dynamiquement
+    candidates = _build_chain(model_alias)
+
+    # 3) Fonction d’appel g4f (avec fallback)
+    def call_g4f_yield() -> Iterable[str]:
+        last_error = None
+        for candidate in candidates:
+            try:
+                # Certains backends g4f acceptent messages "au format OpenAI".
+                # On tente la version “messages” d’abord, sinon fallback sur prompt unique.
+                # Streaming: g4f renvoie déjà des chunks / strings -> on transforme en SSE.
+
+                # a) Essai en mode messages
+                try:
+                    gen = g4f.ChatCompletion.create(
+                        model=candidate,
+                        messages=messages,
+                        stream=True,
+                        temperature=temperature,
+                        top_p=top_p,
+                    )
+                    for chunk in gen:
+                        yield str(chunk)
+                    return
+                except Exception as e1:
+                    last_error = e1
+
+                # b) Fallback en mode prompt unique
+                gen = g4f.ChatCompletion.create(
+                    model=candidate,
+                    messages=[{"role": "user", "content": prompt}],
+                    stream=True,
+                    temperature=temperature,
+                    top_p=top_p,
+                )
+                for chunk in gen:
+                    yield str(chunk)
+                return
+            except Exception as e:
+                last_error = e
+                continue
+        # Si tout a échoué:
+        err = f"All providers failed for alias '{model_alias}'. Last error: {last_error}"
+        yield f"[ERROR]{err}"
+
+    # 4) Réponses
+    if stream:
+        def sse_stream():
+            first_delta_sent = False
+            buffer_text = ""
+            for piece in call_g4f_yield():
+                # Si un provider renvoie entièrement la réponse d’un coup
+                if piece.startswith("[ERROR]"):
+                    # Envoi d’un delta minimal + le message d’erreur dans un choix terminal
+                    if not first_delta_sent:
+                        yield _sse_event({"id": _new_id(), "object": "chat.completion.chunk",
+                                          "created": _now_unix(), "model": model_alias,
+                                          "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]})
+                        first_delta_sent = True
+                    yield _sse_event({"id": _new_id(), "object": "chat.completion.chunk",
+                                      "created": _now_unix(), "model": model_alias,
+                                      "choices": [{"index": 0, "delta": {"content": ""}, "finish_reason": "error"}]})
+                    yield "data: [DONE]\n\n"
+                    return
+
+                # Envoyer role au premier chunk
+                if not first_delta_sent:
+                    yield _sse_event({"id": _new_id(), "object": "chat.completion.chunk",
+                                      "created": _now_unix(), "model": model_alias,
+                                      "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]})
+                    first_delta_sent = True
+
+                txt = str(piece)
+                buffer_text += txt
+                # streamer le delta
+                yield _sse_event({"id": _new_id(), "object": "chat.completion.chunk",
+                                  "created": _now_unix(), "model": model_alias,
+                                  "choices": [{"index": 0, "delta": {"content": txt}, "finish_reason": None}]})
+
+            # tentative de détection d’un tool_call en fin de flux
+            tool_call = _tool_call_from_text(buffer_text)
+            if tool_call:
+                # On “vide” le texte et on renvoie un tool_call final (OpenAI-style)
+                yield _sse_event({"id": _new_id(), "object": "chat.completion.chunk",
+                                  "created": _now_unix(), "model": model_alias,
+                                  "choices": [{"index": 0, "delta": {"content": ""}, "finish_reason": None}]})
+                # encodage tool_calls pour OpenAI SSE
+                yield _sse_event({"id": _new_id(), "object": "chat.completion.chunk",
+                                  "created": _now_unix(), "model": model_alias,
+                                  "choices": [{"index": 0, "delta": {"tool_calls": [tool_call]}, "finish_reason": None}]})
+                yield _sse_event({"id": _new_id(), "object": "chat.completion.chunk",
+                                  "created": _now_unix(), "model": model_alias,
+                                  "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]})
+            else:
+                # fin normale
+                yield _sse_event({"id": _new_id(), "object": "chat.completion.chunk",
+                                  "created": _now_unix(), "model": model_alias,
+                                  "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]})
+            yield "data: [DONE]\n\n"
+
+        return Response(sse_stream(), mimetype="text/event-stream")
+
+    # Non-streaming: on consomme tout puis on renvoie un seul objet OpenAI
+    full_txt = ""
+    for piece in call_g4f_yield():
+        if piece.startswith("[ERROR]"):
+            return jsonify({"error": {"message": piece[7:]}}), 502
+        full_txt += str(piece)
+
+    tool_call = _tool_call_from_text(full_txt)
+    msg = {"role": "assistant", "content": None if tool_call else full_txt}
+    if tool_call:
+        msg["tool_calls"] = [tool_call]
+
+    response = {
+        "id": _new_id(),
+        "object": "chat.completion",
+        "created": _now_unix(),
+        "model": model_alias,
+        "choices": [{
+            "index": 0,
+            "message": msg,
+            "finish_reason": "tool_calls" if tool_call else "stop"
+        }],
+    }
+    # tokens comptage approximatif (optionnel)
+    if max_tokens:
+        response["usage"] = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    return Response(json.dumps(response, ensure_ascii=False), mimetype="application/json")
+
+# Sanity
+@app.route("/v1/models", methods=["GET"])
+def list_models():
+    # Expose les alias connus + quelques modèles bruts issus du registre
+    aliases = sorted(list(TIERS.keys()))
+    sample_raw = sorted(list(MODEL_REGISTRY.keys()))[:60]  # éviter de renvoyer 1000+ entrées
+    items = [{"id": a, "object": "model"} for a in aliases] + \
+            [{"id": m, "object": "model"} for m in sample_raw]
+    return jsonify({"object": "list", "data": items})
+
 if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "4000"))
-    log.info("Starting g4f proxy on %s:%d (default model: %s)", host, port, DEFAULT_MODEL_ID)
     app.run(host=host, port=port, debug=True)

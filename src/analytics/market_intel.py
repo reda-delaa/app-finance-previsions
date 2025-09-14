@@ -23,8 +23,7 @@ Auteur: toi
 """
 from __future__ import annotations
 
-import os, re, sys, json, math, time, argparse, datetime as dt
-from dataclasses import dataclass, field, asdict
+import os, re, sys, json, argparse, datetime as dt
 from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 from collections import Counter, defaultdict
@@ -37,23 +36,9 @@ except Exception as e:
     finnews_build_features = None
 
 try:
-    from ..ingestion.financials_ownership_client import (
-        build_ownership_snapshot,
-        yahoo_snapshot,
-        yahoo_options_chain,
-        sec_submissions,
-        sec_filings_index,
-        sec_form4_insiders,
-        sec_13f_holdings,
-    )
+    from ..ingestion.financials_ownership_client import build_ownership_snapshot
 except Exception as e:
     build_ownership_snapshot = None
-    yahoo_snapshot = None
-    yahoo_options_chain = None
-    sec_submissions = None
-    sec_filings_index = None
-    sec_form4_insiders = None
-    sec_13f_holdings = None
 
 # Optionnels (tu les ajouteras ensuite) — tout est déjà protégé par best-effort
 try:
@@ -64,15 +49,10 @@ except Exception:
     finviz_futures_snapshot = None
 
 try:
-    from ..analytics.macro_derivatives_client import macro_term_structures, rates_fx_commod_summary
+    from ..ingestion.macro_derivatives_client import macro_term_structures, rates_fx_commod_summary
 except Exception:
     macro_term_structures = None
     rates_fx_commod_summary = None
-
-try:
-    import pandas as pd
-except Exception:
-    pd = None
 
 # ============== Utils & Config ==============
 
@@ -146,7 +126,7 @@ def _aggregate_features(news_items: List[Dict[str,Any]], target_ticker: Optional
             return feats_all.get(target_ticker.upper(), {})
         # sinon, on compacte sur clé 'ALL'
         flat = defaultdict(float)
-        for tk, dd in feats_all.items():
+        for dd in feats_all.values():
             for k,v in dd.items():
                 flat[k] += float(v or 0.0)
         # normalise quelques ratios au besoin
