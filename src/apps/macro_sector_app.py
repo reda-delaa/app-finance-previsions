@@ -589,7 +589,12 @@ with st.sidebar:
 
     # 🎛️ Core settings
     with st.expander("🎛️ Core settings", expanded=True):
-        fred_key = st.text_input("FRED API Key (optionnel)", value=os.environ.get("FRED_API_KEY",""))
+        try:
+            from src.secrets_local import get_key  # type: ignore
+            fred_default = get_key("FRED_API_KEY") or os.environ.get("FRED_API_KEY", "")
+        except Exception:
+            fred_default = os.environ.get("FRED_API_KEY", "")
+        fred_key = st.text_input("FRED API key (optional)", value=fred_default)
         start_date = st.date_input("Start date", value=datetime(2010,1,1))
         preset = st.selectbox("Preset", ["Default","Hawkish Fed","Reflation","Risk-off"])
         top_k     = st.slider("Top-K sectors", 1, 6, 3)

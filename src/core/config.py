@@ -36,10 +36,14 @@ class Config:
         for dir_path in [self.data_dir, self.cache_dir, self.artifacts_dir]:
             dir_path.mkdir(parents=True, exist_ok=True)
         
-        # API Keys and credentials
-        self.alpha_vantage_key = os.getenv('ALPHA_VANTAGE_KEY')
-        self.yahoo_api_key = os.getenv('YAHOO_API_KEY')
-        self.finnhub_key = os.getenv('FINNHUB_KEY')
+        # API Keys and credentials (prefer secrets_local.get_key when available)
+        try:
+            from src.secrets_local import get_key  # type: ignore
+            # support both FINNHUB_API_KEY and FINNHUB_KEY
+            self.finnhub_key = (get_key('FINNHUB_KEY') or get_key('FINNHUB_API_KEY') or
+                                os.getenv('FINNHUB_KEY'))
+        except Exception:
+            self.finnhub_key = os.getenv('FINNHUB_KEY')
         
         # Analysis parameters
         self.default_lookback_years = int(os.getenv('DEFAULT_LOOKBACK_YEARS', '3'))
@@ -55,14 +59,18 @@ class Config:
     def _validate_config(self):
         """Validate required configuration settings"""
         missing_keys = []
-        
+
         # Check required API keys
         if not any([self.alpha_vantage_key, self.yahoo_api_key, self.finnhub_key]):
             missing_keys.append("At least one financial API key is required")
-        
+
         if missing_keys:
-            logger.error(f"Missing required configuration: {', '.join(missing_keys)}")
-            raise ValueError("Missing required configuration values")
+            # Log as warning and mark config as invalid; avoid raising to keep import-time safe
+            logger.warning(f"Missing required configuration: {', '.join(missing_keys)}")
+            # attach a flag so callers can detect missing keys at runtime
+            self._is_valid = False
+        else:
+            self._is_valid = True
     
     def get_data_path(self, *parts: str) -> Path:
         """Get path under data directory"""
@@ -97,8 +105,6 @@ class Config:
         
         if not exclude_secrets:
             config_dict.update({
-                'alpha_vantage_key': self.alpha_vantage_key,
-                'yahoo_api_key': self.yahoo_api_key,
                 'finnhub_key': self.finnhub_key
             })
         
@@ -106,10 +112,19 @@ class Config:
 
 
 # Global config instance
+# Charger des secrets locaux éventuels AVANT la validation
+try:
+    # ne plante pas si absent
+    import src.secrets_local  # noqa: F401
+except Exception:
+    pass
+
 try:
     config = Config()
 except Exception as e:
-    # Avoid hard failure at import time to make modules importable in test/dev
-    # environments without API keys. Consumers should handle config == None.
+    # Log missing configuration but avoid hard failure at import time so modules
+    # remain importable in dev/test environments. If secrets_local provided
+    # env vars, Config() will validate properly.
+    logger.error("Missing required configuration: %s", e)
     logger.warning(f"Config not initialized at import time: {e}")
     config = None

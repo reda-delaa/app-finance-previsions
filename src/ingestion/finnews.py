@@ -626,28 +626,44 @@ def build_news_features(items: List[NewsItem], target_ticker: Optional[str] = No
       - count, mean_sentiment, pos_ratio, neg_ratio, event flags, sector counts, novelty (unique sources)
     Return: {ticker: {feature: value}}
     """
+    # Helper to read fields from either NewsItem objects or plain dicts
+    def _get_attr(obj, name, default=None):
+        """Fetch attribute from dataclass-like object or dict-like item."""
+        if obj is None:
+            return default
+        if isinstance(obj, dict):
+            return obj.get(name, default)
+        return getattr(obj, name, default)
+
     by_tk: Dict[str, List[NewsItem]] = defaultdict(list)
     for it in items:
-        tks = it.tickers or (["GEN"] if not target_ticker else [])
+        tks = _get_attr(it, 'tickers') or (["GEN"] if not target_ticker else [])
+        # normalize single-string tickers to list
+        if isinstance(tks, str):
+            tks = [tks]
         # if a target_ticker is specified, keep only items touching it
         if target_ticker:
-            if target_ticker.upper() in [t.upper() for t in it.tickers]:
+            if target_ticker.upper() in [t.upper() for t in (tks or [])]:
                 by_tk[target_ticker.upper()].append(it)
         else:
-            for tk in tks:
-                by_tk[tk.upper()].append(it)
+            for tk in (tks or []):
+                try:
+                    by_tk[tk.upper()].append(it)
+                except Exception:
+                    # skip malformed ticker entries
+                    continue
 
     feats: Dict[str, Dict[str, float]] = {}
     for tk, arr in by_tk.items():
-        if not arr: 
+        if not arr:
             continue
-        sents = [it.sentiment or 0.0 for it in arr]
+        sents = [(_get_attr(it, 'sentiment') or _get_attr(it, 'sent') or 0.0) for it in arr]
         pos = sum(1 for x in sents if x > 0.15)
         neg = sum(1 for x in sents if x < -0.15)
         zero = max(1, len(arr))
-        sectors = Counter([s for it in arr for s in (it.sectors or [])])
-        events = Counter([e for it in arr for e in (it.event_types or [])])
-        srcs = set((it.source or "") for it in arr)
+        sectors = Counter([s for it in arr for s in (_get_attr(it, 'sectors') or [])])
+        events = Counter([e for it in arr for e in (_get_attr(it, 'event_types') or [])])
+        srcs = set((_get_attr(it, 'source') or "") for it in arr)
 
         feats[tk] = {
             "news_count": float(len(arr)),

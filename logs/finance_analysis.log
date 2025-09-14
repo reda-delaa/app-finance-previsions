@@ -3,3 +3,24 @@
 2025-09-12 20:10:06,089 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
 2025-09-12 20:10:35,662 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
 2025-09-12 20:10:35,662 - finance_analysis - WARNING - Config not initialized at import time: Missing required configuration values
+2025-09-14 11:52:38,280 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-14 11:52:38,280 - finance_analysis - WARNING - Config not initialized at import time: Missing required configuration values
+2025-09-14 11:53:53,088 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-14 11:53:53,088 - finance_analysis - WARNING - Config not initialized at import time: Missing required configuration values
+2025-09-14 11:54:55,208 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-14 11:54:55,209 - finance_analysis - WARNING - Config not initialized at import time: Missing required configuration values
+2025-09-14 11:58:06,406 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-14 11:58:06,406 - finance_analysis - WARNING - Config not initialized at import time: Missing required configuration values
+2025-09-14 12:24:44,026 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-14 12:24:44,027 - finance_analysis - ERROR - Missing required configuration: Missing required configuration values
+2025-09-14 12:24:44,027 - finance_analysis - WARNING - Config not initialized at import time: Missing required configuration values
+2025-09-14 12:25:43,497 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-14 12:25:43,497 - finance_analysis - ERROR - Missing required configuration: Missing required configuration values
+2025-09-14 12:25:43,497 - finance_analysis - WARNING - Config not initialized at import time: Missing required configuration values
+2025-09-14 12:34:05,313 - finance_analysis - ERROR - Missing required configuration: At least one financial API key is required
+2025-09-14 12:34:05,313 - finance_analysis - ERROR - Missing required configuration: Missing required configuration values
+2025-09-14 12:34:05,313 - finance_analysis - WARNING - Config not initialized at import time: Missing required configuration values
+2025-09-14 12:36:06,719 - finance_analysis - WARNING - Missing required configuration: At least one financial API key is required
+2025-09-14 12:39:48,194 - finance_analysis - WARNING - Missing required configuration: At least one financial API key is required
+2025-09-14 13:16:33,536 - finance_analysis - ERROR - Missing required configuration: 'Config' object has no attribute 'alpha_vantage_key'
+2025-09-14 13:16:33,536 - finance_analysis - WARNING - Config not initialized at import time: 'Config' object has no attribute 'alpha_vantage_key'

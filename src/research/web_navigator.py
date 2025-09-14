@@ -511,12 +511,11 @@ def finance_search(
     # 3) fallback Serper/Tavily si dispo
     if len(ranked) < max(3, num // 2):
         try:
-            from src.secrets_local import SERPER_API_KEY as _SERPER  # type: ignore
+            from src.secrets_local import get_key  # type: ignore
+            _SERPER = get_key("SERPER_API_KEY") or ""
+            _TAVILY = get_key("TAVILY_API_KEY") or ""
         except Exception:
             _SERPER = os.getenv("SERPER_API_KEY", "")
-        try:
-            from src.secrets_local import TAVILY_API_KEY as _TAVILY  # type: ignore
-        except Exception:
             _TAVILY = os.getenv("TAVILY_API_KEY", "")
 
         if _SERPER:

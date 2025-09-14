@@ -22,11 +22,12 @@ import pandas as pd
 # =========================
 # Firecrawl – SDK only
 # =========================
+# Resolve Firecrawl API key: prefer environment variable, then local secrets file
 try:
     from src.secrets_local import get_key  # type: ignore
-    FIRECRAWL_API_KEY: Optional[str] = get_key("FIRECRAWL_API_KEY")
+    FIRECRAWL_API_KEY: str = get_key("FIRECRAWL_API_KEY") or ""
 except Exception:
-    FIRECRAWL_API_KEY: Optional[str] = os.getenv("FIRECRAWL_API_KEY")
+    FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY") or ""
 
 _FC_AVAILABLE = False
 _app = None
@@ -86,46 +87,28 @@ def _json_ready(obj: Any) -> Any:
         return {k: _json_ready(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_json_ready(v) for v in obj]
-    return obj
-
-
-def _to_mapping(x: Any) -> Any:
-    """Convert SDK/Pydantic-like objects to plain mappings recursively.
-    Handles pydantic v2 (model_dump), dataclass-like objects (__dict__),
-    already-mappings (dict), lists, and falls back to json()/str().
-    """
-    # Already JSON-ready
-    if x is None:
-        return {}
+    # Try to coerce unknown/SDK objects (like ExtractResponse) to dicts
     try:
-        # pydantic v2
-        if hasattr(x, "model_dump"):
-            return _json_ready(x.model_dump())
-        # mapping-like
-        if isinstance(x, dict):
-            return _json_ready({k: v for k, v in x.items()})
-        # sequence
-        if isinstance(x, list):
-            return _json_ready([_to_mapping(v) for v in x])
-        # dataclass / simple object
-        if hasattr(x, "__dict__"):
-            return _json_ready({k: v for k, v in vars(x).items() if not k.startswith("_")})
-        # if object exposes json()
-        if hasattr(x, "json") and callable(getattr(x, "json")):
-            import json as _json
-            try:
-                return _json.loads(x.json())
-            except Exception:
-                return {"value": str(x)}
-        # fallback to string representation
-        return {"value": str(x)}
+        # If object provides conversion helpers, prefer them
+        if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict")):
+            return _json_ready(obj.to_dict())
+        if hasattr(obj, "dict") and callable(getattr(obj, "dict")):
+            return _json_ready(obj.dict())
+        # Fallback: use vars() to read __dict__ for simple objects
+        if hasattr(obj, "__dict__"):
+            return {k: _json_ready(v) for k, v in vars(obj).items() if not k.startswith("_")}
     except Exception:
-        return {"value": str(x)}
+        pass
+    # As last resort, stringify
+    try:
+        return str(obj)
+    except Exception:
+        return None
 
 def _require_fc() -> None:
     if not _FC_AVAILABLE or _app is None:
-        msg = ("Firecrawl SDK indisponible. Installez-le avec `pip install firecrawl-py`. "
-               "La clé API est codée en dur dans FIRECRAWL_API_KEY.")
+        msg = ("Firecrawl SDK indisponible ou clé API manquante. Installez le SDK `pip install firecrawl-py` "
+               "et définissez la variable d'environnement FIRECRAWL_API_KEY ou ajoutez-la dans src/secrets_local.py pour le dev.")
         _log(msg, "error")
         raise RuntimeError(msg)
 
@@ -142,7 +125,8 @@ def fc_extract(urls: List[str], prompt: str, schema: Dict, retries: int = 2, tim
         try:
             payload = _app.extract(urls=urls, prompt=prompt, schema=schema, timeout=timeout_s)  # type: ignore
             _log(f"fc_extract urls={len(urls)} in {(time.time()-t0)*1000:.0f}ms", "info")
-            return _to_mapping(payload or {})
+            # Convert SDK response objects to plain Python structures
+            return _json_ready(payload or {})
         except Exception as e:
             last_err = str(e)
             time.sleep(0.75 * (attempt + 1))
@@ -156,7 +140,7 @@ def fc_search(query: str, limit: int = 10, retries: int = 1) -> Dict[str, Any]:
     for attempt in range(retries + 1):
         try:
             res = _app.search(query=query, limit=limit)  # type: ignore
-            return _to_mapping(res or {"web": []})
+            return _json_ready(res or {"web": []})
         except Exception as e:
             last_err = str(e)
             time.sleep(0.5 * (attempt + 1))

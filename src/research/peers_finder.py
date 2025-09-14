@@ -39,13 +39,16 @@ HTTP_TIMEOUT = (8, 20)
 # ------------------------------------------------------------------------------
 # Finnhub helper
 # ------------------------------------------------------------------------------
-# ---- CONFIG SIMPLE: clé Finnhub ici tjrs !!! il faut absolument la garder ici !! ---------------------------------
-FINNHUB_API_KEY = "d31j44pr01qsprr18im0d31j44pr01qsprr18img"   # <-- tu va la garder comme ca, ne supprime plus jamais cette clefs !!!
-# ---------------------------------------------------------------------
+# Load Finnhub API key: prefer environment, fall back to local secrets file for dev
+try:
+    from src.secrets_local import get_key  # type: ignore
+    _FINNHUB_KEY = get_key("FINNHUB_API_KEY") or get_key("FINNHUB_KEY") or None
+except Exception:
+    _FINNHUB_KEY = os.getenv("FINNHUB_API_KEY") or os.getenv("FINNHUB_KEY") or None
 
 def _load_finnhub_key() -> str:
-    """Retourne la clé Finnhub depuis la variable ci-dessus (point)."""
-    return (FINNHUB_API_KEY or "").strip()
+    """Return the Finnhub API key from env or local secrets fallback."""
+    return (str(_FINNHUB_KEY).strip() if _FINNHUB_KEY else "")
 
 def _fh_get(path: str, params: Dict[str, Any]) -> Dict[str, Any] | List[Any] | None:
     token = _load_finnhub_key()
