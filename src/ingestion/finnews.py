@@ -700,7 +700,7 @@ def build_news_features(items: List[NewsItem], target_ticker: Optional[str] = No
 # Quick backtesting
 # ==================
 
-def price_loader_stub(ticker: str, start: str, end: str) -> Optional["pd.DataFrame"]:
+def price_loader_stub(ticker: str, start: str, end: str) -> Optional[Any]:
     """
     Replace this by your real price loader (e.g., yfinance, polygon, local DB).
     Must return DataFrame with columns: ['close'] indexed by date (UTC naive ok).
@@ -712,7 +712,7 @@ def price_loader_stub(ticker: str, start: str, end: str) -> Optional["pd.DataFra
     return None
 
 def align_news_with_returns(items: List[NewsItem], ticker: str, horizon_days: int = 1,
-                            loader=price_loader_stub) -> Optional["pd.DataFrame"]:
+                            loader=price_loader_stub) -> Optional[Any]:
     if pd is None: 
         return None
     if not items:
