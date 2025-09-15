@@ -1,0 +1,842 @@
+{
+  "ts": 1757902972,
+  "duration_sec": 55,
+  "total_tested": 120,
+  "ok_count": 27,
+  "ok": [
+    {
+      "candidate": "AnyProvider:command-a",
+      "variant": "command-a"
+    },
+    {
+      "candidate": "AnyProvider:command-r",
+      "variant": "command-r"
+    },
+    {
+      "candidate": "AnyProvider:airoboros-70b",
+      "variant": "airoboros-70b"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-r1-distill-llama-70b",
+      "variant": "deepseek-r1-distill-llama-70b"
+    },
+    {
+      "candidate": "AnyProvider:gemma-1.1-7b",
+      "variant": "gemma-1.1-7b"
+    },
+    {
+      "candidate": "AnyProvider:codegemma-7b",
+      "variant": "codegemma-7b"
+    },
+    {
+      "candidate": "AnyProvider:gemma-2-9b",
+      "variant": "gemma-2-9b"
+    },
+    {
+      "candidate": "AnyProvider:gemma-3-12b",
+      "variant": "gemma-3-12b"
+    },
+    {
+      "candidate": "AnyProvider:gemma-3-27b",
+      "variant": "gemma-3-27b"
+    },
+    {
+      "candidate": "AnyProvider:aria",
+      "variant": "aria"
+    },
+    {
+      "candidate": "AnyProvider:gpt-4.1-mini",
+      "variant": "gpt-4.1-mini"
+    },
+    {
+      "candidate": "AnyProvider:llama-2-7b",
+      "variant": "llama-2-7b"
+    },
+    {
+      "candidate": "AnyProvider:gpt-image",
+      "variant": "gpt-image"
+    },
+    {
+      "candidate": "AnyProvider:llama-3.2-1b",
+      "variant": "llama-3.2-1b"
+    },
+    {
+      "candidate": "AnyProvider:flux-pro",
+      "variant": "flux-pro"
+    },
+    {
+      "candidate": "AnyProvider:flux-dev",
+      "variant": "flux-dev"
+    },
+    {
+      "candidate": "AnyProvider:llama-3.3-70b",
+      "variant": "llama-3.3-70b"
+    },
+    {
+      "candidate": "AnyProvider:lzlv-70b",
+      "variant": "lzlv-70b"
+    },
+    {
+      "candidate": "AnyProvider:flux-schnell",
+      "variant": "flux-schnell"
+    },
+    {
+      "candidate": "AnyProvider:gemma-3-4b",
+      "variant": "gemma-3-4b"
+    },
+    {
+      "candidate": "AnyProvider:gpt-4o-mini-tts",
+      "variant": "gpt-4o-mini-tts"
+    },
+    {
+      "candidate": "AnyProvider:gpt-4",
+      "variant": "gpt-4"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-v3",
+      "variant": "deepseek-v3"
+    },
+    {
+      "candidate": "AnyProvider:llama-3.2-90b",
+      "variant": "llama-3.2-90b"
+    },
+    {
+      "candidate": "AnyProvider:llama-3-8b",
+      "variant": "llama-3-8b"
+    },
+    {
+      "candidate": "AnyProvider:flux",
+      "variant": "flux"
+    },
+    {
+      "candidate": "AnyProvider:llama-4-scout",
+      "variant": "llama-4-scout"
+    }
+  ],
+  "results": [
+    {
+      "candidate": "AnyProvider:apriel-5b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-a25",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:GLM-4.5-Air",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:GLM-4.5",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-r7b-arabic-02-2025",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:apriel-5b-instruct",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:PollinationsAI:mistral-small-3.1-24b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:ballad",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:Qwen/Qwen3-30B-A3B",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-a-03-2025",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-ai/DeepSeek-V3-0324",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:ash",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-ai/DeepSeek-V3-0324-Turbo",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:coral",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:allenai/olmOCR-7B-0725-FP8",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:PollinationsAI:bidara",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-r24",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:chatglm",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:Qwen/Qwen3-Coder-480B-A35B-Instruct",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:GLM-4-32B",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:calm",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:Z1-Rumination",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:alloy",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:PollinationsAI:gemini-2.5-flash-lite",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:ChatGLM",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-r7b-12-2024",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:Qwen/Qwen3-Next-80B-A3B-Instruct",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-ai/DeepSeek-V3",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:bidara",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-ai/DeepSeek-R1-0528",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:PollinationsAI:openai-fast",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:PollinationsAI:turbo",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-r-plus-08-2024",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:Qwen/Qwen3-14B",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:PollinationsAI:qwen-2.5-coder-32b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-ai/DeepSeek-Prover-V2-671B",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-r7b24",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:PollinationsAI:gpt-5-nano",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:PollinationsAI:flux",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-ai/DeepSeek-R1-0528-Turbo",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:Qwen/Qwen3-Coder-480B-A35B-Instruct-Turbo",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-r-08-2024",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-r7b-arabic25",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:cowboy",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-r-plus24",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:Qwen/Qwen3-32B",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:default",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:devstral-small-2507",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:discolm-german-7b-v1",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:echo",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:fable",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-r7b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-r-plus",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:command-a",
+      "variant": "command-a",
+      "ok": true,
+      "detail": "OK(messages) command-a"
+    },
+    {
+      "candidate": "AnyProvider:command-r",
+      "variant": "command-r",
+      "ok": true,
+      "detail": "OK(messages) command-r"
+    },
+    {
+      "candidate": "AnyProvider:friendly",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:gemini-2.5-flash-lite",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:airoboros-70b",
+      "variant": "airoboros-70b",
+      "ok": true,
+      "detail": "OK(messages) airoboros-70b"
+    },
+    {
+      "candidate": "AnyProvider:gemma-2-27b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-r1-distill-llama-70b",
+      "variant": "deepseek-r1-distill-llama-70b",
+      "ok": true,
+      "detail": "OK(messages) deepseek-r1-distill-llama-70b"
+    },
+    {
+      "candidate": "AnyProvider:gemma-1.1-7b",
+      "variant": "gemma-1.1-7b",
+      "ok": true,
+      "detail": "OK(messages) gemma-1.1-7b"
+    },
+    {
+      "candidate": "AnyProvider:gemma-3-12b-it",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:codegemma-7b",
+      "variant": "codegemma-7b",
+      "ok": true,
+      "detail": "OK(messages) codegemma-7b"
+    },
+    {
+      "candidate": "AnyProvider:gemma-3-27b-it",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:gemma-2-9b",
+      "variant": "gemma-2-9b",
+      "ok": true,
+      "detail": "OK(messages) gemma-2-9b"
+    },
+    {
+      "candidate": "AnyProvider:gemma-3-4b-it",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:glm-4-32b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:glm-4.5",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:google/gemma-3-12b-it",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:google/gemma-3-27b-it",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:google/gemma-3-4b-it",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:gemma-3-12b",
+      "variant": "gemma-3-12b",
+      "ok": true,
+      "detail": "OK(messages) gemma-3-12b"
+    },
+    {
+      "candidate": "AnyProvider:gemma-3-27b",
+      "variant": "gemma-3-27b",
+      "ok": true,
+      "detail": "OK(messages) gemma-3-27b"
+    },
+    {
+      "candidate": "AnyProvider:aria",
+      "variant": "aria",
+      "ok": true,
+      "detail": "OK(messages) aria"
+    },
+    {
+      "candidate": "AnyProvider:gpt-5-nano",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:gpt-4.1-mini",
+      "variant": "gpt-4.1-mini",
+      "ok": true,
+      "detail": "OK(messages) gpt-4.1-mini"
+    },
+    {
+      "candidate": "AnyProvider:hermes-2-pro-mistral-7b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:hermes-3-llama-3.1-405b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:hermes-3-llama-3.1-405b-fp8",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:llama-2-13b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:llama-2-7b",
+      "variant": "llama-2-7b",
+      "ok": true,
+      "detail": "OK(messages) llama-2-7b"
+    },
+    {
+      "candidate": "AnyProvider:llama-2-7b-fp16",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:gpt-image",
+      "variant": "gpt-image",
+      "ok": true,
+      "detail": "OK(messages) gpt-image"
+    },
+    {
+      "candidate": "AnyProvider:llama-3.2-11b-vision",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:llama-3.2-1b",
+      "variant": "llama-3.2-1b",
+      "ok": true,
+      "detail": "OK(messages) llama-3.2-1b"
+    },
+    {
+      "candidate": "AnyProvider:flux-pro",
+      "variant": "flux-pro",
+      "ok": true,
+      "detail": "OK(messages) flux-pro"
+    },
+    {
+      "candidate": "AnyProvider:flux-dev",
+      "variant": "flux-dev",
+      "ok": true,
+      "detail": "OK(messages) flux-dev"
+    },
+    {
+      "candidate": "AnyProvider:llama-3.3-70b-turbo",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:llama-4-maverick-17b-128e",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:llama-4-maverick-17b-128e-turbo",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:llama-3.3-70b",
+      "variant": "llama-3.3-70b",
+      "ok": true,
+      "detail": "OK(messages) llama-3.3-70b"
+    },
+    {
+      "candidate": "AnyProvider:llama-4-scout-17b-16e",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:llama-guard-4-12b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:llama3.3-70b-instruct-fp8",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:lzlv-70b",
+      "variant": "lzlv-70b",
+      "ok": true,
+      "detail": "OK(messages) lzlv-70b"
+    },
+    {
+      "candidate": "AnyProvider:meta-llama/Llama-3.3-70B-Instruct",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:meta-llama/Llama-4-Scout-17B-16E-Instruct",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:meta-llama/Llama-Guard-4-12B",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:microsoft/Phi-4-multimodal-instruct",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:microsoft/phi-4",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:flux-schnell",
+      "variant": "flux-schnell",
+      "ok": true,
+      "detail": "OK(messages) flux-schnell"
+    },
+    {
+      "candidate": "AnyProvider:gemma-3-4b",
+      "variant": "gemma-3-4b",
+      "ok": true,
+      "detail": "OK(messages) gemma-3-4b"
+    },
+    {
+      "candidate": "AnyProvider:gpt-4o-mini-tts",
+      "variant": "gpt-4o-mini-tts",
+      "ok": true,
+      "detail": "OK(prompt) gpt-4o-mini-tts"
+    },
+    {
+      "candidate": "AnyProvider:gpt-4",
+      "variant": "gpt-4",
+      "ok": true,
+      "detail": "OK(messages) gpt-4"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-v3",
+      "variant": "deepseek-v3",
+      "ok": true,
+      "detail": "OK(prompt) deepseek-v3"
+    },
+    {
+      "candidate": "AnyProvider:llama-3.2-90b",
+      "variant": "llama-3.2-90b",
+      "ok": true,
+      "detail": "OK(messages) llama-3.2-90b"
+    },
+    {
+      "candidate": "AnyProvider:llama-3-8b",
+      "variant": "llama-3-8b",
+      "ok": true,
+      "detail": "OK(messages) llama-3-8b"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-prover-v2",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-prover-v2-671b",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-v3-0324-turbo",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-v3-0324",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-r1-0528-turbo",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:flux",
+      "variant": "flux",
+      "ok": true,
+      "detail": "OK(messages) flux"
+    },
+    {
+      "candidate": "AnyProvider:deepseek-r1-0528",
+      "variant": null,
+      "ok": false,
+      "detail": "all variants failed or gated"
+    },
+    {
+      "candidate": "AnyProvider:llama-4-scout",
+      "variant": "llama-4-scout",
+      "ok": true,
+      "detail": "OK(messages) llama-4-scout"
+    }
+  ],
+  "prompt": "ping",
+  "timeout": 8.0,
+  "max_workers": 16,
+  "sample": 120
+}

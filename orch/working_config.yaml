@@ -1,0 +1,51 @@
+# Verified working models based on smoke test results - prioritize fast models
+models:
+  default: command-r
+  routing:
+    hard_allow:
+      text_primary:
+        - command-r
+        - aria
+        - llama-3.3-70b
+      text_coding:
+        - command-r
+        - llama-3.3-70b
+      text_budget:
+        - aria
+    hard_deny:
+      - deepseek-ai/DeepSeek-V3
+      - meta-llama/Llama-3.3-70B-Instruct
+      - llama-4-scout
+      - deepseek-r1-distill-llama-70b
+      - flux-dev
+
+api_base: "http://127.0.0.1:4000/v1/chat/completions"
+model: "command-r"  # Confirmed working
+max_steps: 8
+request_timeout: 60
+
+system_prompt: |
+  Tu es un agent pragmatique. Utilise UNIQUEMENT ces outils et ce schéma exact:
+  <tool>TOOL_NAME</tool>
+  <args>{"k":"v"}</args>
+
+  OUTILS AUTORISÉS & SCHÉMA:
+  - touch_file: {"path": "str"}
+  - list_dir: {"path": "str" (optionnel, défaut=".")}
+  - read_file: {"path": "str"}
+  - write_file: {"path": "str", "content": "str"}
+  - shell: {"cmd": "str"}  # UNIQUEMENT si aucun autre outil ne convient
+
+  INTERDIT: utiliser "cat", "touch", "ls" en shell si l'outil dédié existe.
+
+tools:
+  - name: "touch_file"
+    description: "Créer un fichier vide"
+  - name: "list_dir"
+    description: "Lister contenu dossier"
+  - name: "read_file"
+    description: "Lire contenu fichier"
+  - name: "write_file"
+    description: "Écrire contenu fichier"
+  - name: "shell"
+    description: "Exécuter commande shell"

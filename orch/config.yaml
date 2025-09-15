@@ -1,0 +1,19 @@
+api_base: "http://127.0.0.1:4000/v1"
+model: "command-r"        # fallback: aria
+max_steps: 8              # sécurité anti-boucle
+request_timeout: 60
+system_prompt: |
+  Tu es un agent pragmatique. Tu raisonnes brièvement, puis tu agis via des outils.
+  Format d'action:
+  <tool>name</tool>
+  <args>{"key":"value"}</args>
+  Après chaque action, attends l'observation avant de continuer.
+tools:
+  - name: "shell"
+    description: "Exécuter une commande shell. Entrée: {cmd:str, cwd?:str}"
+  - name: "read_file"
+    description: "Lire un fichier texte. Entrée: {path:str}"
+  - name: "write_file"
+    description: "Écrire un fichier texte. Entrée: {path:str, content:str}"
+  - name: "http_get"
+    description: "GET HTTP simple. Entrée: {url:str}"
