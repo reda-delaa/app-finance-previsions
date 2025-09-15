@@ -20,8 +20,8 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional
 from collections import defaultdict, Counter
 
-from ..taxonomy.news_taxonomy import tag_sectors, classify_event, tag_geopolitics
-from ..core.io_utils import write_jsonl
+from taxonomy.news_taxonomy import tag_sectors, classify_event, tag_geopolitics
+from core.io_utils import write_jsonl
 
 # ---- Optional external deps (graceful fallback) ----
 try:
@@ -63,7 +63,7 @@ except Exception:
 # ---- Optional internal modules (use if present) ----
 # nlp_enrich: expected to offer summarize(text), translate(text, target_lang), sentiment(text), ner(text) ...
 try:
-    from ..research.nlp_enrich import summarize, translate, sentiment, ner
+    from research.nlp_enrich import summarize, translate, sentiment, ner
     nlp_enrich = True
 except Exception:
     summarize = None
@@ -74,7 +74,7 @@ except Exception:
 
 # news_taxonomy: expected to provide sector/event lexicons or tagger
 try:
-    from ..taxonomy.news_taxonomy import tag_sectors, classify_event, tag_geopolitics
+    from taxonomy.news_taxonomy import tag_sectors, classify_event, tag_geopolitics
     news_taxonomy = True
 except Exception:
     tag_sectors = None
@@ -84,7 +84,7 @@ except Exception:
 
 # stock utilities (ticker mapping) if available
 try:
-    from ..core.stock_utils import guess_ticker  # assuming this exists or create it
+    from core.stock_utils import guess_ticker  # assuming this exists or create it
     stock = True
 except Exception:
     guess_ticker = None

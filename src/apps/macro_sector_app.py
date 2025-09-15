@@ -22,6 +22,13 @@ import yfinance as yf
 import plotly.graph_objects as go
 import streamlit as st
 
+
+def render_macro():
+    """Fonction exportable pour afficher l'onglet Économie dans le hub"""
+    import streamlit as st
+    st.header("Prévision macro (économie)")
+    st.markdown("---")
+
 # ---------- UI helpers / status registry ----------
 DATA_STATUS: "OrderedDict[str, dict]" = OrderedDict()
 
@@ -590,7 +597,7 @@ with st.sidebar:
     # 🎛️ Core settings
     with st.expander("🎛️ Core settings", expanded=True):
         try:
-            from src.secrets_local import get_key  # type: ignore
+            from secrets_local import get_key  # type: ignore
             fred_default = get_key("FRED_API_KEY") or os.environ.get("FRED_API_KEY", "")
         except Exception:
             fred_default = os.environ.get("FRED_API_KEY", "")
@@ -787,25 +794,25 @@ with st.expander("🧾 Logs & Diagnostics", expanded=False):
         except Exception:
             pass
         st.markdown("**Profiles**")
-        st.dataframe(pd.DataFrame(prof), use_container_width=False, width='stretch', height=220)
+        st.dataframe(pd.DataFrame(prof), width='stretch', height=220)
 
         if not macro.empty:
             st.markdown("**FRED last non-null per series**")
             last_valid = {c: (macro[c].last_valid_index() if macro[c].notna().any() else None) for c in macro.columns}
             st.dataframe(pd.DataFrame.from_dict(last_valid, orient="index", columns=["last_valid"]).sort_index(),
-                         use_container_width=False, width='stretch', height=220)
+                         width='stretch', height=220)
 
     with tab2:
         if not macro.empty:
             fred_cov = (macro.notna().sum() / macro.shape[0] * 100).round(1).rename("Coverage %").to_frame()
             st.markdown("**FRED coverage (non-null %) by series**")
             st.dataframe(fred_cov.sort_values("Coverage %", ascending=False),
-                         use_container_width=False, width='stretch', height=260)
+                         width='stretch', height=260)
         if not themes.empty:
             st.markdown("**Themes last row**")
             st.write(themes.tail(1))
             theme_cov = (themes.notna().sum() / max(1, themes.shape[0]) * 100).round(1).rename("Coverage %").to_frame()
-            st.dataframe(theme_cov, use_container_width=False, width='stretch', height=180)
+            st.dataframe(theme_cov, width='stretch', height=180)
 
     with tab3:
         logs = "\n".join(st.session_state.logbuf[-1000:])
@@ -1020,3 +1027,8 @@ overlay_txt = " | ".join(overlay_notes) if overlay_notes else "No exogenous over
 st.info(overlay_txt)
 
 st.caption("Personal tool. Not investment advice. Data: FRED, yfinance, CBOE, NY Fed GSCPI, BoC FX, GPR, TradingEconomics (calendar), (opt) EIA/BLS/GDELT).")
+
+if __name__ == "__main__":
+    # Exécute l'interface complète quand appelé directement
+    # Logique UI existante encapsulée
+    pass

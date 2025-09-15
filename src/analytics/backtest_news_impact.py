@@ -48,9 +48,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..core.io_utils import read_jsonl, write_jsonl, Cache, get_artifacts_dir
-from ..core.market_data import fetch_price_history
-from ..ingestion.finnews import Article  # Import the Article class from finnews.py
+from core.io_utils import read_jsonl, write_jsonl, Cache, get_artifacts_dir
+from core.market_data import fetch_price_history
+from ingestion.finnews import Article  # Import the Article class from finnews.py
 
 try:
     import yfinance as yf
@@ -78,16 +78,7 @@ def ensure_tz_utc(ts: datetime) -> datetime:
     return ts.astimezone(timezone.utc)
 
 
-@dataclass
-class Article:
-    ts: datetime
-    tickers: List[str]
-    sentiment: float
-    event_class: Optional[str]
-    relevance: Optional[float]
-    source: Optional[str]
-    region: Optional[str]
-    id: Optional[str]
+# Article class imported from ingestion.finnews at top of file
 
 
 # ---------------------------

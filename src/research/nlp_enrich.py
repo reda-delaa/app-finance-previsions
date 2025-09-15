@@ -18,7 +18,14 @@ No external imports beyond stdlib.
 """
 from __future__ import annotations
 
-from ..taxonomy.news_taxonomy import tag_sectors, classify_event, tag_geopolitics
+# Imports optionnels pour éviter les erreurs d'import relatifs
+try:
+    from taxonomy.news_taxonomy import tag_sectors, classify_event, tag_geopolitics
+    IMPORT_SUCCESS = True
+except ImportError:
+    # Fallback si import relatif échoue (ex: exécution directe)
+    tag_sectors, classify_event, tag_geopolitics = lambda x: [], lambda x, y: "unknown", lambda x: []
+    IMPORT_SUCCESS = False
 
 from dataclasses import dataclass, asdict
 from typing import List, Dict, Tuple, Optional, Callable
@@ -344,6 +351,57 @@ def enrich_article(
     )
 
 
+# ===============================
+# Hub Integration Functions
+# ===============================
+
+def ask_model(question: str, context: dict = None) -> str:
+    """Fonction wrapper pour intégrer NLP_enrich avec l'app hub.
+
+    Prend question et contexte, retourne une réponse textuelle.
+    """
+    if context is None:
+        context = {}
+
+    # Utilise la question comme titre principal
+    enriched = enrich_article(
+        title=question[:200],  # limiter la taille
+        summary="",  # pas d'autre contenu pour la question
+        body=question  # utiliser question complète
+    )
+
+    # Structure la réponse avec les données contextuelles
+    response_parts = []
+
+    # Réponse narrative comme base
+    if enriched.narrative:
+        response_parts.append(f"**Analyse :** {enriched.narrative}")
+
+    # Ajouter les entités trouvées dans la question
+    if enriched.entities.get("companies") or enriched.entities.get("tickers"):
+        ents = enriched.entities.get("companies", []) + enriched.entities.get("tickers", [])
+        if ents:
+            response_parts.append(f"**Entités identifiées :** {', '.join(ents[:5])}")
+
+    # Ajouter le sentiment de la question
+    if enriched.sentiment != 0:
+        sent_desc = "positif" if enriched.sentiment > 0 else "négatif"
+        response_parts.append(f"**Ton de la question :** {sent_desc} (score: {enriched.sentiment:.2f})")
+
+    # Informations contextuelles complémentaires
+    if "scope" in context:
+        scope = context["scope"]
+        if scope == "stock" and "ticker" in context:
+            response_parts.append(f"**Contexte :** Analyse pour l'action {context['ticker']}")
+        elif scope == "macro":
+            response_parts.append("**Contexte :** Analyse macroéconomique")
+
+    # Synthèse si rien trouvé
+    if not response_parts:
+        response_parts.append("**Réponse :** Question traitée avec analyse NLP (pas de contexte particulier identifié)")
+
+    return "\n\n".join(response_parts)
+
 # -----------------------------
 # Demo / self-test
 # -----------------------------
@@ -363,3 +421,12 @@ if __name__ == "__main__":
     enriched = enrich_article(sample_title, sample_sum, sample_body)
     import json
     print(json.dumps(enriched.asdict(), ensure_ascii=False, indent=2))
+
+    # Test de ask_model pour l'intégration hub
+    print("\n" + "="*50)
+    print("TEST ask_model pour hub:")
+    test_question = "Les prix du pétrole vont-ils continuer à monter ?"
+    test_context = {"scope": "macro", "question": test_question}
+    response = ask_model(test_question, test_context)
+    print("Question:", test_question)
+    print("Réponse:", response)

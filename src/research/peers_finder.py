@@ -364,6 +364,38 @@ def get_peers_auto(user_input: str, min_peers: int = 5, max_peers: int = 15, log
     log.info(f"[{input_label}] peers retenus: {peers}")
     return peers
 
+def find_peers(ticker: str, k: int = 8):
+    """Fonction d'interface avec fallback si pas d'API Finnhub"""
+    try:
+        peers = get_peers_auto(ticker, min_peers=k, max_peers=k)
+        if peers:
+            return peers
+    except Exception:
+        pass
+
+    # --- Fallback simple via yfinance (même secteur/industry) ---
+    try:
+        import pandas as pd
+        info = _yf_info(yf.Ticker(ticker))
+        sector = info.get("sector")
+        industry = info.get("industry")
+        if not sector:
+            return []
+        # Heuristique: prendre un panel d'actions US fréquentes, filtrer par secteur/industry
+        candidates = ["AAPL","MSFT","GOOGL","AMZN","META","NVDA","TSLA","ORCL","IBM","INTC","CRM","ADBE","AMD","NFLX","AVGO"]
+        out = []
+        for t in candidates:
+            try:
+                i = _yf_info(yf.Ticker(t))
+                if i.get("sector") == sector and (not industry or i.get("industry") == industry):
+                    out.append(t)
+            except Exception:
+                pass
+        out = [p for p in out if p != ticker][:k]
+        return out
+    except Exception:
+        return []
+
 # ------------------------------------------------------------------------------
 # CLI
 # ------------------------------------------------------------------------------

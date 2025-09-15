@@ -16,3 +16,4 @@ fredapi>=0.5.0
 langdetect>=1.0.9
 vaderSentiment>=3.3.2
 feedparser>=6.0.10
+g4f>=0.3.0

@@ -579,6 +579,40 @@ def scenario_impact(exposure: ExposureReport,
 
 # --------------------------- API "haut niveau" --------------------------------#
 
+def get_macro_features() -> Dict[str, Any]:
+    """
+    Get current macro features using the macro nowcast function.
+    This is a wrapper function to match the expected signature from app.py.
+
+    Returns:
+        Dict: Current macro features suitable for conversion to dict
+    """
+    try:
+        # Get the US macro bundle
+        bundle = get_us_macro_bundle(start="2000-01-01", monthly=True)
+
+        # Generate the macro nowcast
+        nowcast = macro_nowcast(bundle)
+
+        # Return as dict
+        return {
+            "macro_nowcast": nowcast.to_dict(),
+            "timestamp": bundle.data.index[-1] if not bundle.data.empty else None,
+            "meta": bundle.meta
+        }
+
+    except Exception as e:
+        # Return error dict
+        return {
+            "error": f"Failed to get macro features: {str(e)}",
+            "macro_nowcast": {
+                "scores": {},
+                "components": {}
+            },
+            "meta": {}
+        }
+
+
 def build_macro_view(ticker: str,
                      start: str = "2000-01-01",
                      period_stock: str = "15y") -> Dict[str, Any]:

@@ -615,5 +615,51 @@ def main(argv: Optional[List[str]] = None) -> int:
     return 0 if res.get("ok") else 1
 
 
+# Exports pour compatibilité avec app.py
+__all__ = [
+    'EconomicAnalyst',
+    'EconomicInput',
+    'ask_model', 
+    'arbitre', 
+    'analyze_economic_question',
+    'POWER_NOAUTH_MODELS',
+]
+
+# Fonctions d'interface publiques
+def ask_model(question: str, context: dict = None) -> str:
+    """Interface simplifiée pour poser des questions économiques."""
+    agent = EconomicAnalyst()
+    
+    ein = EconomicInput(
+        question=question,
+        features=context.get('features') if context else None,
+        news=context.get('news') if context else None,
+        attachments=context.get('attachments') if context else None,
+        locale=context.get('locale', 'fr') if context else 'fr',
+        meta=context or {}
+    )
+    
+    result = agent.analyze(ein)
+    return result.get('answer', 'Erreur dans la réponse LLM')
+
+def arbitre(context: dict) -> dict:
+    """Interface arbitre pour les décisions économiques."""
+    agent = EconomicAnalyst()
+    
+    ein = EconomicInput(
+        question=context.get('question', f'Analyse {context.get("scope", "macro")}'),
+        features=context.get('macro_features') or context.get('tech_features'),
+        news=context.get('news'),
+        attachments=context.get('attachments'),
+        locale=context.get('locale', 'fr'),
+        meta=context
+    )
+    
+    return agent.analyze(ein)
+
+# Alias
+analyze_economic_question = ask_model
+
+
 if __name__ == "__main__":
     sys.exit(main())

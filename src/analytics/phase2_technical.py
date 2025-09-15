@@ -695,6 +695,66 @@ def walk_forward_backtest(ind: IndicatorSet,
 #                              API "haut niveau"                                #
 # -----------------------------------------------------------------------------#
 
+def compute_technical_features(ticker: str, window: int = 180) -> Dict[str, Any]:
+    """
+    Compute technical features for a given ticker using the build_technical_view function.
+    This is a wrapper function to match the expected signature from app.py.
+
+    Args:
+        ticker (str): Stock ticker symbol
+        window (int): Lookback window in days (default: 180)
+
+    Returns:
+        Dict: Technical features suitable for conversion to dict
+    """
+    try:
+        # Map window to appropriate period and interval
+        if window <= 30:
+            period = "1mo"
+            interval = "1d"
+        elif window <= 90:
+            period = "3mo"
+            interval = "1d"
+        elif window <= 180:
+            period = "6mo"
+            interval = "1d"
+        elif window <= 365:
+            period = "1y"
+            interval = "1d"
+        else:
+            period = f"{max(1, window // 365)}y"
+            interval = "1d"
+
+        result = build_technical_view(ticker, period=period, interval=interval)
+
+        # Convert to dict if it's not already
+        if hasattr(result, 'to_dict'):
+            return result.to_dict()
+        elif isinstance(result, dict):
+            return result
+        else:
+            # Fallback conversion
+            return {
+                'ticker': ticker,
+                'last_price': getattr(result, 'last_price', None),
+                'signals': getattr(result, 'signals', {}),
+                'regime': getattr(result, 'regime', {}),
+                'risk': getattr(result, 'risk', {}),
+                'window': window
+            }
+
+    except Exception as e:
+        # Return error dict
+        return {
+            'ticker': ticker,
+            'error': f"Failed to compute technical features: {str(e)}",
+            'signals': {},
+            'regime': {},
+            'risk': {},
+            'window': window
+        }
+
+
 def build_technical_view(ticker: str,
                          period: str = DEFAULT_PERIOD,
                          interval: str = DEFAULT_INTERVAL) -> Dict[str, Any]:

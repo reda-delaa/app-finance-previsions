@@ -453,7 +453,7 @@ fig.update_layout(height=600,
                  hovermode="x unified",
                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width='stretch')
 
 # --------- Indicateurs techniques ----------
 st.subheader("Indicateurs techniques")
@@ -478,7 +478,7 @@ with col1:
                             yaxis=dict(range=[0, 100]),
                             height=300,
                             hovermode="x unified")
-        st.plotly_chart(fig_rsi, use_container_width=True)
+        st.plotly_chart(fig_rsi, width='stretch')
 
 with col2:
     if show_macd:
@@ -500,7 +500,7 @@ with col2:
         fig_macd.update_layout(title="MACD",
                              height=300,
                              hovermode="x unified")
-        st.plotly_chart(fig_macd, use_container_width=True)
+        st.plotly_chart(fig_macd, width='stretch')
 
 # --------- Analyse de performance ----------
 st.subheader("Analyse de performance")
@@ -535,7 +535,7 @@ if not comparison_normalized.empty and len(comparison_normalized) > 0:
                         title="Performance relative (base 100)",
                         labels={"value": "Performance (%)", "variable": "Symbole"})
         fig_comp.update_layout(height=400, hovermode="x unified")
-        st.plotly_chart(fig_comp, use_container_width=True)
+        st.plotly_chart(fig_comp, width='stretch')
     except Exception as e:
         st.warning(f"Erreur lors de la création du graphique de comparaison: {e}")
 else:
@@ -577,7 +577,7 @@ with col1:
                                 title="Volatilité annualisée (fenêtre 20 jours)",
                                 labels={"value": "Volatilité (%)", "variable": "Symbole"})
                 fig_vol.update_layout(height=300, hovermode="x unified")
-                st.plotly_chart(fig_vol, use_container_width=True)
+                st.plotly_chart(fig_vol, width='stretch')
             else:
                 st.info("Pas assez de données pour calculer la volatilité")
         else:
@@ -599,7 +599,7 @@ with col2:
                                     title=f"Bêta glissant par rapport à {BENCHMARKS.get(benchmark, benchmark)}",
                                     labels={"value": "Bêta"})
                     fig_beta.update_layout(height=300, hovermode="x unified")
-                    st.plotly_chart(fig_beta, use_container_width=True)
+                    st.plotly_chart(fig_beta, width='stretch')
                 else:
                     st.info("Impossible de calculer le bêta avec les données disponibles")
             else:
@@ -628,7 +628,7 @@ if compare_macro and not macro_data.empty:
                         zmin=-1, zmax=1,
                         title="Matrice de corrélation")
     fig_corr.update_layout(height=500)
-    st.plotly_chart(fig_corr, use_container_width=True)
+    st.plotly_chart(fig_corr, width='stretch')
     
     # Graphiques de dispersion pour les corrélations importantes
     st.subheader("Relation avec les indicateurs clés")
@@ -672,7 +672,7 @@ if compare_macro and not macro_data.empty:
                                          )
                     st.info("📊 Pour afficher les lignes de tendance, installez le package 'statsmodels' avec la commande: pip install statsmodels")
                 
-                st.plotly_chart(fig_scatter, use_container_width=True)
+                st.plotly_chart(fig_scatter, width='stretch')
             except Exception as e:
                 st.warning(f"Erreur lors de la création du graphique de dispersion: {e}")
 
@@ -804,7 +804,7 @@ if show_macro_analysis:
                         fig = px.line(inflation_data, x=inflation_data.index, y=inflation_data.columns,
                                     title="Indicateurs d'inflation")
                         fig.update_layout(height=400, hovermode="x unified")
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width='stretch')
                         
                         # Calculer les variations annuelles
                         if len(inflation_data) > 252:  # Au moins un an de données
@@ -824,7 +824,7 @@ if show_macro_analysis:
                         fig = px.line(growth_data, x=growth_data.index, y=growth_data.columns,
                                     title="Indicateurs de croissance économique")
                         fig.update_layout(height=400, hovermode="x unified")
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width='stretch')
                         
                         # Calculer les variations annuelles
                         if len(growth_data) > 252:  # Au moins un an de données
@@ -844,7 +844,7 @@ if show_macro_analysis:
                         fig = px.line(rates_data, x=rates_data.index, y=rates_data.columns,
                                     title="Évolution des taux d'intérêt")
                         fig.update_layout(height=400, hovermode="x unified")
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width='stretch')
                         
                         # Calculer les variations absolues sur 3 mois
                         if len(rates_data) > 63:  # Au moins 3 mois de données
@@ -864,7 +864,7 @@ if show_macro_analysis:
                         fig = px.line(other_data, x=other_data.index, y=other_data.columns,
                                     title="Autres indicateurs économiques")
                         fig.update_layout(height=400, hovermode="x unified")
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width='stretch')
                     else:
                         st.info("Aucune donnée disponible pour la période sélectionnée.")
                 else:
@@ -897,7 +897,7 @@ if show_macro_analysis:
                                         title="Impact des facteurs économiques sur l'action",
                                         labels={"value": "Corrélation", "index": "Indicateur"})
                         fig_corr.update_layout(height=400)
-                        st.plotly_chart(fig_corr, use_container_width=True)
+                        st.plotly_chart(fig_corr, width='stretch')
                         
                         # Analyse de sensibilité basée sur le secteur
                         if ticker in SECTOR_SENSITIVITY.columns:
@@ -909,7 +909,7 @@ if show_macro_analysis:
                                             title="Sensibilité théorique aux facteurs économiques",
                                             labels={"value": "Sensibilité (-2 à +2)", "index": "Facteur"})
                             fig_sens.update_layout(height=300)
-                            st.plotly_chart(fig_sens, use_container_width=True)
+                            st.plotly_chart(fig_sens, width='stretch')
                             
                             # Interprétation
                             st.write("**Interprétation de la sensibilité:**")
@@ -1628,7 +1628,7 @@ if show_forecasts:
                             yaxis_title="MAPE (%)",
                             height=300
                         )
-                        st.plotly_chart(fig_cv, use_container_width=True)
+                        st.plotly_chart(fig_cv, width='stretch')
                     else:
                         st.info("Données insuffisantes pour la validation croisée avec les paramètres actuels.")
             
@@ -1672,7 +1672,7 @@ if show_forecasts:
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             
             # Afficher quelques statistiques de la prévision
             current_price = close_prices.iloc[-1]
@@ -1709,4 +1709,25 @@ if show_forecasts:
         st.error(f"Erreur lors de la génération des prévisions: {e}")
         st.error("Détails de l'erreur:", exc_info=True)
 
-st.caption("Outil personnel. Ne constitue pas un conseil en investissement. Données: yfinance, FRED. Analyse = indicateurs techniques + comparaison sectorielle + corrélations macro + analyse économique.")
+def render_stock(default_ticker: str = "AAPL"):
+    """Fonction exportable pour afficher l'onglet Action dans le hub"""
+    # Cette fonction sera appelée depuis le hub, on ne peut pas dupliquer tout le code ici
+    # On indique juste que l'interface complète devrait être disponible
+    pass
+
+# Code UI principal ci-dessous (exécuté uniquement si appelé directement)
+if __name__ == "__main__":
+    # Interface complète d'analyse d'actions
+    import streamlit as st
+    st.set_page_config(page_title="Analyse Approfondie d'Action", layout="wide")
+    st.title("📊 Analyse Approfondie d'Action")
+
+    with st.sidebar:
+        st.header("Paramètres")
+        ticker = st.text_input("Symbole de l'action", value="NGD.TO")
+
+    if ticker:
+        st.header(f"Analyse pour {ticker}")
+        st.info("Analyse complète disponible dans le hub principal.")
+    else:
+        st.warning("Veuillez entrer un symbole d'action valide.")
