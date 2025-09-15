@@ -129,15 +129,31 @@ def _fred_csv(series_id: str, start: Optional[str] = None) -> pd.Series:
     url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
     if start:
         url += f"&startdate={start}"
-    with urllib.request.urlopen(url, timeout=20) as resp:
-        raw = resp.read()
-    df = pd.read_csv(io.BytesIO(raw))
-    if "DATE" not in df.columns or series_id not in df.columns:
+    try:
+        with urllib.request.urlopen(url, timeout=20) as resp:
+            raw = resp.read()
+        df = pd.read_csv(io.BytesIO(raw))
+
+        # Check for different possible date column names
+        date_col = None
+        if "observation_date" in df.columns:
+            date_col = "observation_date"
+        elif "DATE" in df.columns:
+            date_col = "DATE"
+        elif "date" in df.columns:
+            date_col = "date"
+
+        # Check if data is available
+        if date_col is None or series_id not in df.columns:
+            return pd.Series(dtype=float)
+
+        s = pd.to_datetime(df[date_col])
+        v = pd.to_numeric(df[series_id].replace(".", np.nan), errors="coerce")
+        out = pd.Series(v.values, index=s, name=series_id).sort_index()
+        return out.dropna()
+    except Exception as e:
+        # Return empty series instead of raising error
         return pd.Series(dtype=float)
-    s = pd.to_datetime(df["DATE"])
-    v = pd.to_numeric(df[series_id].replace(".", np.nan), errors="coerce")
-    out = pd.Series(v.values, index=s, name=series_id).sort_index()
-    return out.dropna()
 
 
 def fetch_fred_series(series: List[str], start: Optional[str] = None, sleep: float = 0.15) -> pd.DataFrame:
@@ -188,7 +204,7 @@ def fetch_market_proxies(period: str = "10y") -> pd.DataFrame:
     return df
 
 
-def resample_align(df: pd.DataFrame, freq: str = "M", method: str = "last") -> pd.DataFrame:
+def resample_align(df: pd.DataFrame, freq: str = "ME", method: str = "last") -> pd.DataFrame:
     """
     Standardise la fréquence (mensuelle par défaut).
     method: 'last' (par défaut), 'mean'
@@ -204,12 +220,12 @@ def resample_align(df: pd.DataFrame, freq: str = "M", method: str = "last") -> p
 
 
 def pct_chg(df: pd.DataFrame, periods: int = 1) -> pd.DataFrame:
-    return df.pct_change(periods=periods)
+    return df.pct_change(periods=periods, fill_method=None)
 
 
 def yoy(df: pd.DataFrame) -> pd.DataFrame:
     """Croissance annuelle (YoY) pour données mensuelles/quarterly."""
-    return df.pct_change(12)
+    return df.pct_change(12, fill_method=None)
 
 
 def zscore_df(df: pd.DataFrame, winsor: float = 3.0) -> pd.DataFrame:
@@ -251,13 +267,19 @@ def get_us_macro_bundle(start: str = "2000-01-01",
     mkt = fetch_market_proxies(period="max")
     # resample
     if monthly:
-        fred_m = resample_align(fred, "M", "last")
-        mkt_m = resample_align(mkt, "M", "last")
+        fred_m = resample_align(fred, "ME", "last")
+        mkt_m = resample_align(mkt, "ME", "last")
     else:
         fred_m = resample_align(fred, "W", "last")
         mkt_m = resample_align(mkt, "W", "last")
 
-    data = pd.concat([fred_m, mkt_m], axis=1)
+    # Handle concatenation with empty DataFrames
+    if fred_m.empty:
+        data = mkt_m
+    elif mkt_m.empty:
+        data = fred_m
+    else:
+        data = pd.concat([fred_m, mkt_m], axis=1)
     data = data.dropna(how="all")
     meta = {"country": "US", "freq": "M" if monthly else "W", "source": "FRED+yfinance"}
     return MacroBundle(data=data, meta=meta)
@@ -281,45 +303,67 @@ def macro_nowcast(bundle: MacroBundle) -> NowcastView:
     yoy_cols = {}
     def _safe_yoy(col):
         if col in df.columns:
-            return df[[col]].pct_change(12).rename(columns={col: col + "_YoY"})
+            return df[[col]].pct_change(12, fill_method=None).rename(columns={col: col + "_YoY"})
         return pd.DataFrame()
 
+    # Build growth components - filter out empty DataFrames
     parts = []
     for c in ["INDPRO", "PAYEMS", "RSAFS"]:
-        parts.append(_safe_yoy(c))
-    growth = pd.concat(parts + [df[["NAPM"]].apply(lambda s: s - s.rolling(24, min_periods=12).mean()) if "NAPM" in df else pd.DataFrame()], axis=1)
+        yoy_df = _safe_yoy(c)
+        if not yoy_df.empty:
+            parts.append(yoy_df)
+    if "NAPM" in df.columns and not df["NAPM"].empty:
+        napm_df = (df[["NAPM"]] - df["NAPM"].rolling(24, min_periods=12).mean()).rename(columns={"NAPM": "NAPM_dev"})
+        if not napm_df.empty:
+            parts.append(napm_df)
+    growth = pd.concat(parts, axis=1) if parts else pd.DataFrame()
 
+    # Build inflation components - filter out empty DataFrames
     infl_parts = []
     for c in ["CPIAUCSL", "CPILFESL"]:
-        infl_parts.append(_safe_yoy(c))
+        yoy_df = _safe_yoy(c)
+        if not yoy_df.empty:
+            infl_parts.append(yoy_df)
     # T10YIE (niveau, recentré)
-    if "T10YIE" in df:
-        infl_parts.append((df[["T10YIE"]] - df["T10YIE"].rolling(24, min_periods=12).mean()).rename(columns={"T10YIE": "T10YIE_dev"}))
-    inflation = pd.concat(infl_parts, axis=1)
+    if "T10YIE" in df.columns and not df["T10YIE"].empty:
+        t10yie_df = (df[["T10YIE"]] - df["T10YIE"].rolling(24, min_periods=12).mean()).rename(columns={"T10YIE": "T10YIE_dev"})
+        if not t10yie_df.empty:
+            infl_parts.append(t10yie_df)
+    inflation = pd.concat(infl_parts, axis=1) if infl_parts else pd.DataFrame()
 
     # Policy: FedFunds (niveau recentré) + slope yield (2s10s) inversé (plus inversé → plus restrictif)
     pol_parts = []
-    if "FEDFUNDS" in df:
-        pol_parts.append((df[["FEDFUNDS"]] - df["FEDFUNDS"].rolling(24, min_periods=12).mean()).rename(columns={"FEDFUNDS": "FEDFUNDS_dev"}))
-    if "DGS10" in df and "DGS2" in df:
+    if "FEDFUNDS" in df.columns and not df["FEDFUNDS"].empty:
+        fedfunds_df = (df[["FEDFUNDS"]] - df["FEDFUNDS"].rolling(24, min_periods=12).mean()).rename(columns={"FEDFUNDS": "FEDFUNDS_dev"})
+        if not fedfunds_df.empty:
+            pol_parts.append(fedfunds_df)
+    if "DGS10" in df.columns and "DGS2" in df.columns and not df["DGS10"].empty and not df["DGS2"].empty:
         slope = (df["DGS10"] - df["DGS2"]).to_frame("Slope_10y_2y")
-        pol_parts.append((-slope).rename(columns={"Slope_10y_2y": "Policy_Tightness"}))
-    policy = pd.concat(pol_parts, axis=1)
+        slope_df = (-slope).rename(columns={"Slope_10y_2y": "Policy_Tightness"})
+        if not slope_df.empty:
+            pol_parts.append(slope_df)
+    policy = pd.concat(pol_parts, axis=1) if pol_parts else pd.DataFrame()
 
     # USD
     usd_parts = []
-    if "DTWEXBGS" in df:
-        usd_parts.append(df[["DTWEXBGS"]].pct_change(12).rename(columns={"DTWEXBGS": "DTWEXBGS_YoY"}))
-    if "DX-Y.NYB" in df:
-        usd_parts.append(df[["DX-Y.NYB"]].pct_change(12).rename(columns={"DX-Y.NYB": "DXY_YoY"}))
-    usd = pd.concat(usd_parts, axis=1)
+    if "DTWEXBGS" in df.columns and not df["DTWEXBGS"].empty:
+        usd_df = df[["DTWEXBGS"]].pct_change(12, fill_method=None).rename(columns={"DTWEXBGS": "DTWEXBGS_YoY"})
+        if not usd_df.empty:
+            usd_parts.append(usd_df)
+    if "DX-Y.NYB" in df.columns and not df["DX-Y.NYB"].empty:
+        dxy_df = df[["DX-Y.NYB"]].pct_change(12, fill_method=None).rename(columns={"DX-Y.NYB": "DXY_YoY"})
+        if not dxy_df.empty:
+            usd_parts.append(dxy_df)
+    usd = pd.concat(usd_parts, axis=1) if usd_parts else pd.DataFrame()
 
     # Commodities
     com_parts = []
     for col, out in [("GC=F", "Gold_YoY"), ("CL=F", "WTI_YoY"), ("HG=F", "Copper_YoY")]:
-        if col in df:
-            com_parts.append(df[[col]].pct_change(12).rename(columns={col: out}))
-    commodities = pd.concat(com_parts, axis=1)
+        if col in df.columns and not df[col].empty:
+            com_df = df[[col]].pct_change(12, fill_method=None).rename(columns={col: out})
+            if not com_df.empty:
+                com_parts.append(com_df)
+    commodities = pd.concat(com_parts, axis=1) if com_parts else pd.DataFrame()
 
     # z-scores
     growth_z = zscore_df(growth).mean(axis=1)
@@ -328,23 +372,39 @@ def macro_nowcast(bundle: MacroBundle) -> NowcastView:
     usd_z = zscore_df(usd).mean(axis=1)
     com_z = zscore_df(commodities).mean(axis=1)
 
-    latest = pd.concat([
+    latest_df = pd.concat([
         growth_z.rename("GrowthZ"),
         infl_z.rename("InflationZ"),
         policy_z.rename("PolicyZ"),
         usd_z.rename("USDZ"),
         com_z.rename("CommoditiesZ")
-    ], axis=1).dropna().iloc[-1]
+    ], axis=1).dropna()
+
+    if latest_df.empty:
+        latest = pd.Series(dtype=float, index=["GrowthZ", "InflationZ", "PolicyZ", "USDZ", "CommoditiesZ"])
+    else:
+        latest = latest_df.iloc[-1]
 
     # composants (derniers dispo)
+    def _safe_extract_last(series):
+        """Safely extract the last value from a Series, handling scalar series."""
+        if series.empty or series.shape[1] == 0:
+            return np.nan
+        last_val = series.iloc[-1]
+        # Handle both scalar values and pandas Series
+        if hasattr(last_val, 'item'):
+            return last_val.item()
+        else:
+            return float(last_val)
+
     comps = {
-        "INDPRO_YoY": float(growth.filter(like="INDPRO").iloc[-1]) if not growth.empty and growth.filter(like="INDPRO").shape[1] else np.nan,
-        "PAYEMS_YoY": float(growth.filter(like="PAYEMS").iloc[-1]) if growth.filter(like="PAYEMS").shape[1] else np.nan,
-        "CPI_YoY": float(inflation.filter(like="CPIAUCSL").iloc[-1]) if inflation.filter(like="CPIAUCSL").shape[1] else np.nan,
-        "CoreCPI_YoY": float(inflation.filter(like="CPILFESL").iloc[-1]) if inflation.filter(like="CPILFESL").shape[1] else np.nan,
-        "Breakeven_dev": float(inflation.filter(like="T10YIE_dev").iloc[-1]) if inflation.filter(like="T10YIE_dev").shape[1] else np.nan,
-        "FedFunds_dev": float(policy.filter(like="FEDFUNDS_dev").iloc[-1]) if policy.filter(like="FEDFUNDS_dev").shape[1] else np.nan,
-        "YieldSlope_Tight": float(policy.filter(like="Policy_Tightness").iloc[-1]) if policy.filter(like="Policy_Tightness").shape[1] else np.nan,
+        "INDPRO_YoY": _safe_extract_last(growth.filter(like="INDPRO")) if not growth.empty and growth.filter(like="INDPRO").shape[1] else np.nan,
+        "PAYEMS_YoY": _safe_extract_last(growth.filter(like="PAYEMS")) if growth.filter(like="PAYEMS").shape[1] else np.nan,
+        "CPI_YoY": _safe_extract_last(inflation.filter(like="CPIAUCSL")) if inflation.filter(like="CPIAUCSL").shape[1] else np.nan,
+        "CoreCPI_YoY": _safe_extract_last(inflation.filter(like="CPILFESL")) if inflation.filter(like="CPILFESL").shape[1] else np.nan,
+        "Breakeven_dev": _safe_extract_last(inflation.filter(like="T10YIE_dev")) if inflation.filter(like="T10YIE_dev").shape[1] else np.nan,
+        "FedFunds_dev": _safe_extract_last(policy.filter(like="FEDFUNDS_dev")) if policy.filter(like="FEDFUNDS_dev").shape[1] else np.nan,
+        "YieldSlope_Tight": _safe_extract_last(policy.filter(like="Policy_Tightness")) if policy.filter(like="Policy_Tightness").shape[1] else np.nan,
         "USD_YoY": float(usd.mean(axis=1).iloc[-1]) if not usd.empty else np.nan,
         "Commodities_YoY": float(commodities.mean(axis=1).iloc[-1]) if not commodities.empty else np.nan
     }
@@ -371,59 +431,93 @@ def build_macro_factors(bundle: MacroBundle) -> pd.DataFrame:
       - RATE10: variation de US10Y (Δ, mensuel)
     """
     df = bundle.data.copy()
-    # utiliser les mêmes constructions que nowcast
-    nc = macro_nowcast(bundle)
-    # On reconstitue les séries sous-jacentes pour tout l'historique
-    # Growth block
+
+    # Growth block - filter out empty series
     g_parts = []
     for c in ["INDPRO", "PAYEMS", "RSAFS"]:
-        if c in df:
-            g_parts.append(df[[c]].pct_change(12).rename(columns={c: c + "_YoY"}))
-    if "NAPM" in df:
-        g_parts.append((df[["NAPM"]] - df["NAPM"].rolling(24, min_periods=12).mean()).rename(columns={"NAPM": "NAPM_dev"}))
-    G = zscore_df(pd.concat(g_parts, axis=1)).mean(axis=1).rename("GRW")
+        if c in df.columns and not df[c].empty:
+            g_series = df[[c]].pct_change(12, fill_method=None).rename(columns={c: c + "_YoY"})
+            if not g_series.empty:
+                g_parts.append(g_series)
+    if "NAPM" in df.columns and not df["NAPM"].empty:
+        napm_series = (df[["NAPM"]] - df["NAPM"].rolling(24, min_periods=12).mean()).rename(columns={"NAPM": "NAPM_dev"})
+        if not napm_series.empty:
+            g_parts.append(napm_series)
+    G = zscore_df(pd.concat(g_parts, axis=1)).mean(axis=1).rename("GRW") if g_parts else pd.Series(dtype=float)
 
-    # Inflation block
+    # Inflation block - filter out empty series
     i_parts = []
     for c in ["CPIAUCSL", "CPILFESL"]:
-        if c in df:
-            i_parts.append(df[[c]].pct_change(12).rename(columns={c: c + "_YoY"}))
-    if "T10YIE" in df:
-        i_parts.append((df[["T10YIE"]] - df["T10YIE"].rolling(24, min_periods=12).mean()).rename(columns={"T10YIE": "T10YIE_dev"}))
-    I = zscore_df(pd.concat(i_parts, axis=1)).mean(axis=1).rename("INF")
+        if c in df.columns and not df[c].empty:
+            i_series = df[[c]].pct_change(12, fill_method=None).rename(columns={c: c + "_YoY"})
+            if not i_series.empty:
+                i_parts.append(i_series)
+    if "T10YIE" in df.columns and not df["T10YIE"].empty:
+        t10yie_series = (df[["T10YIE"]] - df["T10YIE"].rolling(24, min_periods=12).mean()).rename(columns={"T10YIE": "T10YIE_dev"})
+        if not t10yie_series.empty:
+            i_parts.append(t10yie_series)
+    I = zscore_df(pd.concat(i_parts, axis=1)).mean(axis=1).rename("INF") if i_parts else pd.Series(dtype=float)
 
-    # Policy block
+    # Policy block - filter out empty series
     p_parts = []
-    if "FEDFUNDS" in df:
-        p_parts.append((df[["FEDFUNDS"]] - df["FEDFUNDS"].rolling(24, min_periods=12).mean()).rename(columns={"FEDFUNDS": "FEDFUNDS_dev"}))
-    if "DGS10" in df and "DGS2" in df:
-        slope = (df["DGS10"] - df["DGS2"]).to_frame("Slope")
-        p_parts.append((-slope).rename(columns={"Slope": "Policy_Tight"}))
-    P = zscore_df(pd.concat(p_parts, axis=1)).mean(axis=1).rename("POL")
+    if "FEDFUNDS" in df.columns and not df["FEDFUNDS"].empty:
+        fedfunds_series = (df[["FEDFUNDS"]] - df["FEDFUNDS"].rolling(24, min_periods=12).mean()).rename(columns={"FEDFUNDS": "FEDFUNDS_dev"})
+        if not fedfunds_series.empty:
+            p_parts.append(fedfunds_series)
+    if "DGS10" in df.columns and "DGS2" in df.columns and not df["DGS10"].empty and not df["DGS2"].empty:
+        slope_series = (-(df["DGS10"] - df["DGS2"])).to_frame("Policy_Tight")
+        if not slope_series.empty:
+            p_parts.append(slope_series)
+    P = zscore_df(pd.concat(p_parts, axis=1)).mean(axis=1).rename("POL") if p_parts else pd.Series(dtype=float)
 
-    # USD
+    # USD - filter out empty series
     u_parts = []
-    if "DTWEXBGS" in df:
-        u_parts.append(df[["DTWEXBGS"]].pct_change(12).rename(columns={"DTWEXBGS": "DTWEXBGS_YoY"}))
-    if "DX-Y.NYB" in df:
-        u_parts.append(df[["DX-Y.NYB"]].pct_change(12).rename(columns={"DX-Y.NYB": "DXY_YoY"}))
-    U = zscore_df(pd.concat(u_parts, axis=1)).mean(axis=1).rename("USD")
+    if "DTWEXBGS" in df.columns and not df["DTWEXBGS"].empty:
+        usd_series = df[["DTWEXBGS"]].pct_change(12, fill_method=None).rename(columns={"DTWEXBGS": "DTWEXBGS_YoY"})
+        if not usd_series.empty:
+            u_parts.append(usd_series)
+    if "DX-Y.NYB" in df.columns and not df["DX-Y.NYB"].empty:
+        dxy_series = df[["DX-Y.NYB"]].pct_change(12, fill_method=None).rename(columns={"DX-Y.NYB": "DXY_YoY"})
+        if not dxy_series.empty:
+            u_parts.append(dxy_series)
+    U = zscore_df(pd.concat(u_parts, axis=1)).mean(axis=1).rename("USD") if u_parts else pd.Series(dtype=float)
 
-    # Commodities
+    # Commodities - filter out empty series
     c_parts = []
     for col in ["GC=F", "CL=F", "HG=F"]:
-        if col in df:
-            c_parts.append(df[[col]].pct_change(12).rename(columns={col: col + "_YoY"}))
-    C = zscore_df(pd.concat(c_parts, axis=1)).mean(axis=1).rename("CMD")
+        if col in df.columns and not df[col].empty:
+            c_series = df[[col]].pct_change(12, fill_method=None).rename(columns={col: col + "_YoY"})
+            if not c_series.empty:
+                c_parts.append(c_series)
+    C = zscore_df(pd.concat(c_parts, axis=1)).mean(axis=1).rename("CMD") if c_parts else pd.Series(dtype=float)
 
     # Rate10 delta (niveau → Δ mensuel)
     RATE10 = None
-    if "US10Y" in df:
+    if "US10Y" in df.columns and not df["US10Y"].empty:
         RATE10 = df["US10Y"].diff().rename("RATE10")
-    elif "DGS10" in df:
+    elif "DGS10" in df.columns and not df["DGS10"].empty:
         RATE10 = (df["DGS10"] / 100.0).diff().rename("RATE10")
 
-    facs = pd.concat([G, I, P, U, C, RATE10], axis=1)
+    # Combine all factors, handling cases where some series might be empty
+    factor_series = []
+    factor_dict = {"G": G, "I": I, "P": P, "U": U, "C": C}
+
+    for key, series in factor_dict.items():
+        if not series.empty:
+            factor_series.append(series)
+
+    # Add RATE10 if it exists and is not empty
+    if RATE10 is not None and not RATE10.empty:
+        factor_series.append(RATE10)
+
+    if not factor_series:
+        return pd.DataFrame()
+
+    if len(factor_series) == 1:
+        facs = factor_series[0].to_frame()
+    else:
+        facs = pd.concat(factor_series, axis=1)
+
     return facs.dropna(how="all")
 
 
@@ -439,7 +533,7 @@ def _align_stock_factors(ticker: str,
     if px.empty:
         return pd.Series(dtype=float), pd.DataFrame()
     # Mensualisation
-    pr_m = px["Close"].resample("M").last()
+    pr_m = px["Close"].resample("ME").last()
     ret_m = pr_m.pct_change().dropna()
     fac_m = factors.copy()
     common = ret_m.index.intersection(fac_m.index)

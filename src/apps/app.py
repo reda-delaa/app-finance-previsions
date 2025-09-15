@@ -7,14 +7,97 @@ if str(_SRC_ROOT) not in _sys.path:
     _sys.path.insert(0, str(_SRC_ROOT))
 # -------------------------------------
 
+# ---------- LOGGING GLOBAL (console + fichier tournant) ----------
+import logging, logging.handlers, time, os, warnings
+from pathlib import Path
+
+LOG_DIR = Path(_SRC_ROOT).parent / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "hub_app.log"
+
+_root = logging.getLogger()
+_root.setLevel(logging.DEBUG)  # on veut tout (tu peux repasser en INFO si trop verbeux)
+
+# formateur compact mais riche
+_fmt = logging.Formatter(
+    "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+# handler console
+_ch = logging.StreamHandler()
+_ch.setLevel(logging.DEBUG)
+_ch.setFormatter(_fmt)
+# handler fichier tournant (5x5MB)
+_fh = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=5_000_000, backupCount=5, encoding="utf-8")
+_fh.setLevel(logging.DEBUG)
+_fh.setFormatter(_fmt)
+
+# purge handlers en double lors des reruns streamlit
+for h in list(_root.handlers):
+    _root.removeHandler(h)
+_root.addHandler(_ch)
+_root.addHandler(_fh)
+
+# capter warnings en logging
+warnings.filterwarnings("default")
+logging.captureWarnings(True)
+
+# baisser un peu le bruit de certaines libs (ajuste si besoin)
+logging.getLogger("urllib3").setLevel(logging.INFO)
+logging.getLogger("requests").setLevel(logging.INFO)
+logging.getLogger("yfinance").setLevel(logging.INFO)
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
+logging.getLogger("PIL").setLevel(logging.WARNING)
+
+logger = logging.getLogger("hub")
+
 import traceback, importlib, sys, json
 import datetime as dt
 import streamlit as st
+
+# (optionnel) hook global pour exceptions non catchées
+def _excepthook(tp, val, tb):
+    logger.critical("UNCAUGHT: %s: %s\n%s", tp.__name__, val, "".join(traceback.format_tb(tb)))
+_sys.excepthook = _excepthook
 
 st.set_page_config(page_title="Analyse Financière — Hub", layout="wide")
 st.title("📈 Analyse Financière — Hub IA")
 
 _DEBUG = st.sidebar.checkbox("Afficher DEBUG", value=True)
+
+def _json_s(obj):
+    """repr JSON safe pour logs (pas d'exceptions)."""
+    try:
+        import json
+        return json.dumps(obj, ensure_ascii=False, default=str)[:2000]
+    except Exception:
+        return str(obj)[:2000]
+
+def log_exc(where: str, exc: BaseException):
+    logger.error("EXC @ %s: %s\n%s", where, exc, traceback.format_exc())
+    if _DEBUG:
+        with st.sidebar.expander(f"Exception @ {where}", expanded=False):
+            st.code(traceback.format_exc())
+
+def trace_call(name: str, fn):
+    """wrappe une fonction pour loguer entrée/sortie/durée/erreur."""
+    if fn is None or not callable(fn):
+        return fn
+    def _wrapped(*args, **kwargs):
+        t0 = time.perf_counter()
+        logger.debug("→ %s args=%s kwargs=%s", name, _json_s(args), _json_s(kwargs))
+        try:
+            out = fn(*args, **kwargs)
+            dt = (time.perf_counter() - t0) * 1000
+            logger.debug("← %s (%.1f ms) result=%s", name, dt, _json_s(out))
+            return out
+        except Exception as e:
+            dt = (time.perf_counter() - t0) * 1000
+            logger.error("✖ %s FAILED (%.1f ms): %s", name, dt, e)
+            log_exc(name, e)
+            raise
+    return _wrapped
 
 def log_debug(msg: str):
     if _DEBUG:
@@ -24,130 +107,131 @@ def log_debug(msg: str):
 
 def safe_import(path: str, attr: str | None = None):
     """
-    Import robuste : retourne (objet | None, erreur | None)
-    - path: ex. 'analytics.econ_llm_agent'
-    - attr: ex. 'EconomicAnalyst' ou None pour renvoyer le module
+    Import robuste : retourne (objet|None, erreur|None) ET logue le timing + chemin.
     """
+    t0 = time.perf_counter()
     try:
         mod = importlib.import_module(path)
+        dt = (time.perf_counter() - t0) * 1000
         if attr is None:
+            logger.debug("import %s OK (%.1f ms) file=%s", path, dt, getattr(mod, "__file__", "?"))
             return mod, None
         if not hasattr(mod, attr):
+            logger.error("import %s.%s ABSENT (%.1f ms)", path, attr, dt)
             return None, f"module '{path}' has no attribute '{attr}'"
-        return getattr(mod, attr), None
+        obj = getattr(mod, attr)
+        logger.debug("import %s.%s OK (%.1f ms) file=%s", path, attr, dt, getattr(mod, "__file__", "?"))
+        return obj, None
     except Exception as e:
+        dt = (time.perf_counter() - t0) * 1000
+        logger.error("import %s%s FAILED (%.1f ms): %s", path, f'.{attr}' if attr else "", dt, e)
         return None, f"{e.__class__.__name__}: {e}"
 
-# ===== Imports UI pages =====
+# ===== UI pages =====
 render_macro, err = safe_import("apps.macro_sector_app", "render_macro")
 if err: log_debug(f"Failed to import apps.macro_sector_app.render_macro: {err}")
-
 render_stock, err = safe_import("apps.stock_analysis_app", "render_stock")
 if err: log_debug(f"Failed to import apps.stock_analysis_app.render_stock: {err}")
+render_macro = trace_call("render_macro", render_macro)
+render_stock = trace_call("render_stock", render_stock)
 
-# ===== Feature providers / analytics =====
-# Peers
+# ===== Providers =====
 find_peers, err = safe_import("research.peers_finder", "find_peers")
 if err: log_debug(f"Failed to import research.peers_finder.find_peers: {err}")
+find_peers = trace_call("find_peers", find_peers)
 
-# News
-load_news, err = safe_import("ingestion.finnews", "run_pipeline")
-# Wrapper pour load_news
-if load_news:
-    def _load_news_wrapper(window_days=7, regions=None, sectors=None, tickers=None):
-        return load_news(
-            regions=regions or ["US", "CA", "INTL", "GEO"],
-            window=max(1, window_days),
-            query=" ".join(tickers or []) if tickers else "",
-            limit=50
-        )
-    load_news = _load_news_wrapper
+# News (wrapper pipeline -> load_news signature unifiée)
+_run_pipeline, err = safe_import("ingestion.finnews", "run_pipeline")
 if err: log_debug(f"Failed to import ingestion.finnews.run_pipeline: {err}")
+def _load_news_wrapper(window_days=7, regions=None, sectors=None, tickers=None):
+    logger.debug("load_news.wrapper IN window_days=%s regions=%s sectors=%s tickers=%s",
+                 window_days, regions, sectors, tickers)
+    if _run_pipeline is None:
+        return []
+    out = _run_pipeline(
+        regions=regions or ["US", "CA", "INTL", "GEO"],
+        window=max(1, int(window_days or 7)),
+        query=" ".join(tickers or []),
+        limit=50
+    )
+    logger.debug("load_news.wrapper OUT items=%s", len(out) if hasattr(out, "__len__") else "<?>")
+    return out
+load_news = trace_call("load_news", _load_news_wrapper if _run_pipeline else None)
 
-# Tech/Funda/Macro features
 compute_technical_features, err = safe_import("analytics.phase2_technical", "compute_technical_features")
 if err: log_debug(f"Failed to import analytics.phase2_technical.compute_technical_features: {err}")
+compute_technical_features = trace_call("compute_technical_features", compute_technical_features)
 
 load_fundamentals, err = safe_import("analytics.phase1_fundamental", "load_fundamentals")
 if err: log_debug(f"Failed to import analytics.phase1_fundamental.load_fundamentals: {err}")
+load_fundamentals = trace_call("load_fundamentals", load_fundamentals)
 
 get_macro_features, err = safe_import("analytics.phase3_macro", "get_macro_features")
 if err: log_debug(f"Failed to import analytics.phase3_macro.get_macro_features: {err}")
+get_macro_features = trace_call("get_macro_features", get_macro_features)
 
-# ===== NLP enrich (plusieurs noms possibles) =====
+# ===== NLP_enrich (plusieurs alias) =====
 def _resolve_ask_model():
-    # 1) research.nlp_enrich.ask_model
-    fn, err = safe_import("research.nlp_enrich", "ask_model")
-    if not err and fn: return fn
-    log_debug(f"Failed to import research.nlp_enrich.ask_model: {err}")
-    # 2) research.nlp_enrich.query_model
-    fn, err = safe_import("research.nlp_enrich", "query_model")
-    if not err and fn: return fn
-    log_debug(f"Failed to import research.nlp_enrich.query_model: {err}")
-    # 3) analytics.nlp_enrich.ask_model (au cas où)
-    fn, err = safe_import("analytics.nlp_enrich", "ask_model")
-    if not err and fn: return fn
-    log_debug(f"Failed to import analytics.nlp_enrich.ask_model: {err}")
+    for path, attr in [
+        ("research.nlp_enrich", "ask_model"),
+        ("research.nlp_enrich", "query_model"),
+        ("analytics.nlp_enrich", "ask_model"),
+    ]:
+        fn, err = safe_import(path, attr)
+        if not err and fn:
+            return trace_call(f"{path}.{attr}", fn)
+        log_debug(f"Failed to import {path}.{attr}: {err}")
     return None
-
 ask_model = _resolve_ask_model()
 
-# ===== Arbitre (réutilise econ_llm_agent) =====
+# ===== Arbitre (econ_llm_agent) =====
 def _resolve_arbitre():
-    """
-    On essaie dans l’ordre :
-      - fonction module-level 'arbitre' (rare)
-      - fonction 'arbitrage' (rare)
-      - classe EconomicAnalyst().analyze(context)  ← le plus probable
-    """
-    # 1) fonctions directes
-    fn, err = safe_import("analytics.econ_llm_agent", "arbitre")
-    if not err and fn:
-        return lambda ctx: fn(ctx)
-    log_debug(f"Failed to import analytics.econ_llm_agent.arbitre: {err}")
+    # fonctions directes
+    for attr in ("arbitre", "arbitrage"):
+        fn, err = safe_import("analytics.econ_llm_agent", attr)
+        if not err and fn:
+            return trace_call(f"econ_llm_agent.{attr}", lambda ctx: fn(ctx))
 
-    fn, err = safe_import("analytics.econ_llm_agent", "arbitrage")
-    if not err and fn:
-        return lambda ctx: fn(ctx)
-    log_debug(f"Failed to import analytics.econ_llm_agent.arbitrage: {err}")
-
-    # 2) classe + méthode
-    Cls, err = safe_import("analytics.econ_llm_agent", "EconomicAnalyst")
-    InputCls, err_input = safe_import("analytics.econ_llm_agent", "EconomicInput")
-    if not err and Cls and not err_input and InputCls:
+    # classe EconomicAnalyst/EconomicInput
+    Cls, err1 = safe_import("analytics.econ_llm_agent", "EconomicAnalyst")
+    Inp, err2 = safe_import("analytics.econ_llm_agent", "EconomicInput")
+    if not err1 and Cls and not err2 and Inp:
         def _call(ctx: dict):
+            t0 = time.perf_counter()
+            logger.debug("→ arbitre.analyze ctx=%s", _json_s(ctx))
             try:
-                # lazy import pour éviter erreurs au import-time (ex. g4f)
                 analyst = Cls()
                 if hasattr(analyst, "analyze"):
-                    # Créer un objet EconomicInput avec les bons attributs
-                    enriched_ctx = ctx.copy()
-                    question = enriched_ctx.get("question", f"Analyse {ctx.get('scope', 'macro')}")
-                    features = enriched_ctx.get("macro_features") or enriched_ctx.get("tech_features") or enriched_ctx.get("fundamentals")
-                    news = enriched_ctx.get("news")
-
-                    # Créer l'objet EconomicInput
-                    input_obj = InputCls(
-                        question=question,
-                        features=features,
-                        news=news,
-                        attachments=enriched_ctx.get("attachments"),
-                        locale=enriched_ctx.get("locale", "fr"),
-                        meta=enriched_ctx
+                    q = ctx.get("question", f"Analyse {ctx.get('scope','macro')}")
+                    feats = ctx.get("macro_features") or ctx.get("tech_features") or ctx.get("fundamentals")
+                    input_obj = Inp(
+                        question=q,
+                        features=feats,
+                        news=ctx.get("news"),
+                        attachments=ctx.get("attachments"),
+                        locale=ctx.get("locale","fr"),
+                        meta=ctx
                     )
-                    return analyst.analyze(input_obj)
-                # fallback : cherche une méthode "arbitre"/"arbitrage"/"judge"/"aggregate"/"decide"
-                for cand in ("arbitre", "arbitrage", "judge", "aggregate", "decide"):
-                    if hasattr(analyst, cand):
-                        return getattr(analyst, cand)(ctx)
-                raise RuntimeError("Aucune méthode d'arbitrage trouvée sur EconomicAnalyst")
+                    out = analyst.analyze(input_obj)
+                else:
+                    # fallback sur méthodes candidates
+                    for cand in ("arbitre","arbitrage","judge","aggregate","decide"):
+                        if hasattr(analyst, cand):
+                            out = getattr(analyst, cand)(ctx)
+                            break
+                    else:
+                        raise RuntimeError("Aucune méthode d'arbitrage sur EconomicAnalyst")
+                dt = (time.perf_counter()-t0)*1000
+                logger.debug("← arbitre.analyze (%.1f ms) out=%s", dt, _json_s(out))
+                return out
             except Exception as e:
-                traceback.print_exc()
-                return {"error": f"arbitre failed: {e.__class__.__name__}: {e}"}
+                dt = (time.perf_counter()-t0)*1000
+                logger.error("✖ arbitre.analyze FAILED (%.1f ms): %s", dt, e)
+                log_exc("arbitre.analyze", e)
+                raise
         return _call
-    log_debug(f"Failed to import analytics.econ_llm_agent.EconomicAnalyst: {err}")
+    log_debug(f"Failed to import analytics.econ_llm_agent.EconomicAnalyst/EconomicInput: {err1 or ''} | {err2 or ''}")
     return None
-
 arbitre = _resolve_arbitre()
 
 # ===== UI =====
@@ -155,6 +239,7 @@ tabs = st.tabs(["💰 Économie", "📊 Action", "📰 Actu"])
 
 # ---- Tab 1: Macro ----
 with tabs[0]:
+    logger.info("TAB Macro opened")
     if render_macro:
         try:
             render_macro()
@@ -169,6 +254,7 @@ with tabs[0]:
             st.info("NLP_enrich indisponible (ask_model non trouvé).")
         else:
             q = st.text_input("Question au modèle", placeholder="Que prévois-tu sur l'inflation à 6 mois ?")
+            logger.debug("UI macro.question=%s", q)
             context = {}
             if get_macro_features:
                 try:
@@ -178,6 +264,7 @@ with tabs[0]:
                 except Exception as e:
                     st.warning(f"get_macro_features() a échoué: {e}")
             if st.button("Poser la question (macro)"):
+                logger.info("BTN macro.ask clicked")
                 try:
                     ans = ask_model(q, context=context)
                     st.write(ans)
@@ -201,7 +288,9 @@ with tabs[0]:
 
 # ---- Tab 2: Stock ----
 with tabs[1]:
+    logger.info("TAB Stock opened")
     default_ticker = st.session_state.get("ticker", "AAPL")
+    logger.debug("state.ticker=%s", default_ticker)
     if render_stock:
         try:
             render_stock(default_ticker=default_ticker)
@@ -214,6 +303,7 @@ with tabs[1]:
     with st.expander("🧩 Peers (comparables)"):
         ticker = st.text_input("Ticker (peers)", value=default_ticker, key="peers_ticker").upper()
         k = st.slider("Nombre de comparables", 3, 20, 8)
+        logger.debug("UI peers.ticker=%s k=%s", ticker, k)
         if not find_peers:
             st.info("Peers finder indisponible.")
         else:
@@ -232,6 +322,7 @@ with tabs[1]:
         else:
             q2 = st.text_input("Question au modèle", placeholder="Le momentum de MSFT est-il soutenable 3 mois ?", key="stock_q")
             ticker2 = st.text_input("Ticker contexte", value=default_ticker, key="stock_ctx_ticker").upper()
+            logger.debug("UI stock.qa q2=%s ticker2=%s", q2, ticker2)
             ctx2 = {"scope": "stock", "ticker": ticker2}
             if compute_technical_features:
                 try:
@@ -250,6 +341,7 @@ with tabs[1]:
                 except Exception as e:
                     st.warning(f"load_news a échoué: {e}")
             if st.button("Poser la question (stock)"):
+                logger.info("BTN stock.ask clicked")
                 try:
                     ans2 = ask_model(q2, context=ctx2)
                     st.write(ans2)
@@ -275,12 +367,14 @@ with tabs[1]:
 
 # ---- Tab 3: News ----
 with tabs[2]:
+    logger.info("TAB News opened")
     st.subheader("🗞️ Actu économique")
     if not load_news:
         st.info("Module news indisponible.")
     else:
         window = st.slider("Fenêtre (jours)", 3, 60, 14)
         regions = st.multiselect("Régions", ["US","EU","FR","WORLD"], default=["US","EU"])
+        logger.debug("UI news.window=%s regions=%s", window, regions)
         try:
             items = load_news(window_days=window, regions=regions)
             if not items:
@@ -295,5 +389,15 @@ with tabs[2]:
         except Exception as e:
             st.error(f"load_news a échoué: {e}")
             st.code(traceback.format_exc())
+
+with st.sidebar.expander("📜 Log (dernieres lignes)", expanded=False):
+    try:
+        txt = (LOG_FILE.read_text(encoding="utf-8") if LOG_FILE.exists() else "")
+        # on coupe pour éviter de rendre des Mo dans streamlit
+        lines = txt.splitlines()[-400:]
+        st.code("\n".join(lines))
+        st.caption(f"Fichier: {LOG_FILE}")
+    except Exception as e:
+        st.write(f"Impossible de lire le log: {e}")
 
 st.caption("Hub d'analyse financière — Modules intégrés : Macro, Stock, NLP_enrich, Arbitre, Peers, News")

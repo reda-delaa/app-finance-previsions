@@ -42,8 +42,15 @@ class Config:
             # support both FINNHUB_API_KEY and FINNHUB_KEY
             self.finnhub_key = (get_key('FINNHUB_KEY') or get_key('FINNHUB_API_KEY') or
                                 os.getenv('FINNHUB_KEY'))
+            # Alpha Vantage API key
+            self.alpha_vantage_key = (get_key('ALPHA_VANTAGE_KEY') or get_key('ALPHA_VANTAGE_API_KEY') or
+                                      os.getenv('ALPHA_VANTAGE_KEY'))
+            # Yahoo Finance API key (optional, mainly for premium features)
+            self.yahoo_api_key = (get_key('YAHOO_API_KEY') or os.getenv('YAHOO_API_KEY'))
         except Exception:
             self.finnhub_key = os.getenv('FINNHUB_KEY')
+            self.alpha_vantage_key = os.getenv('ALPHA_VANTAGE_KEY')
+            self.yahoo_api_key = os.getenv('YAHOO_API_KEY')
         
         # Analysis parameters
         self.default_lookback_years = int(os.getenv('DEFAULT_LOOKBACK_YEARS', '3'))

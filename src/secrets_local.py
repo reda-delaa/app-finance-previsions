@@ -22,7 +22,7 @@ FRED_API_KEY = "63bcdd7052a9d5f2339d2a631b4f1f5a"
 
 
 # Optional keys you can add when available
-ALPHA_VANTAGE_KEY = None
+ALPHA_VANTAGE_KEY = "RFLFQN0UK9HUTPQG"
 YAHOO_API_KEY = None
 
 # --- Export to environment for modules that read os.environ / dotenv ---

@@ -227,7 +227,12 @@ def _to_json_serializable(o):
             return {k: _to_json_serializable(v) for k, v in o.items()}
         if isinstance(o, (list, tuple)):
             return [_to_json_serializable(v) for v in o]
-        if hasattr(o, "dict") and callable(getattr(o, "dict")):
+        if hasattr(o, "model_dump") and callable(getattr(o, "model_dump")):
+            try:
+                return _to_json_serializable(o.model_dump())
+            except Exception:
+                pass
+        elif hasattr(o, "dict") and callable(getattr(o, "dict")):
             try:
                 return _to_json_serializable(o.dict())
             except Exception:

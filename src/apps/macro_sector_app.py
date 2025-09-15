@@ -7,7 +7,7 @@ except Exception:
 
 import os
 import time
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 import warnings
 from typing import Optional, Union
 import io
@@ -56,7 +56,7 @@ if "logbuf" not in st.session_state:
     st.session_state.logbuf = []
 
 def _log(level: str, msg: str):
-    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts} UTC] {level}: {msg}"
     st.session_state.logbuf.append(line)
     try:
@@ -340,7 +340,8 @@ def fetch_gscpi():
             text = r.text.strip()
             # Si HTML/JSON -> essayer quand même d'extraire une table simple ; sinon raise
             if not text or text[0] in ("<", "{"):
-                raise RuntimeError("NY Fed returned non-CSV content")
+                log_warn(f"GSCPI: URL {u} returned non-CSV content, skipping")
+                continue
             # Essais multi-séparateurs
             for sep in [",", ";", "\t", r"\s+"]:
                 try:
@@ -363,7 +364,8 @@ def fetch_gscpi():
             if val_col is None:
                 val_col = df.columns[1] if df.shape[1] >= 2 else None
             if val_col is None:
-                raise KeyError("Cannot find value column")
+                log_warn(f"GSCPI: Cannot find value column for URL {u}, skipping")
+                continue
             df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
             # gérer décimales avec virgule éventuelles
             s = pd.to_numeric(df[val_col].astype(str).str.replace(",", "."),
@@ -371,12 +373,16 @@ def fetch_gscpi():
             out = pd.Series(s.values, index=df[date_col], name="GSCPI").dropna()
             out = out[~out.index.duplicated()].sort_index()
             if out.empty:
-                raise RuntimeError("Parsed CSV but got empty series")
+                log_warn(f"GSCPI: Parsed CSV empty from URL {u}, skipping")
+                continue
             return out
         except Exception as e:
             last_err = e
+            log_warn(f"GSCPI: Failed to fetch from {u}: {e}")
             continue
-    raise RuntimeError(f"GSCPI fetch failed: {last_err}")
+    # Return None instead of raising an exception to make the system more resilient
+    log_warn(f"GSCPI fetch failed for all URLs, returning None. Last error: {last_err}")
+    return None
 
 @tlog("fetch_vix_history")
 def fetch_vix_history():
@@ -402,7 +408,8 @@ def fetch_gpr():
             r.raise_for_status()
             text = r.text.strip()
             if not text:
-                raise RuntimeError("Empty content")
+                log_warn(f"GPR: Empty content from URL {u}, skipping")
+                continue
             # Essais multi-séparateurs
             for sep in [",", ";", "\t", r"\s+"]:
                 try:
@@ -425,19 +432,24 @@ def fetch_gpr():
             if val_col is None:
                 val_col = df.columns[1] if df.shape[1] >= 2 else None
             if val_col is None:
-                raise KeyError("Cannot find GPR value column")
+                log_warn(f"GPR: Cannot find GPR value column for URL {u}, skipping")
+                continue
             df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
             s = pd.to_numeric(df[val_col].astype(str).str.replace(",", "."),
                               errors="coerce")
             out = pd.Series(s.values, index=df[date_col], name="GPR").dropna()
             out = out[~out.index.duplicated()].sort_index()
             if out.empty:
-                raise RuntimeError("Parsed CSV but got empty series")
+                log_warn(f"GPR: Parsed CSV empty from URL {u}, skipping")
+                continue
             return out
         except Exception as e:
             last_err = e
+            log_warn(f"GPR: Failed to fetch from {u}: {e}")
             continue
-    raise RuntimeError(f"GPR fetch failed: {last_err}")
+    # Return None instead of raising an exception to make the system more resilient
+    log_warn(f"GPR fetch failed for all URLs, returning None. Last error: {last_err}")
+    return None
 
 @tlog("fetch_boc_fx")
 def fetch_boc_fx(series="FXUSDCAD"):
@@ -481,7 +493,7 @@ def fetch_gdelt_events(days=30):
     try:
         frames = []
         for d in range(days):
-            day = (datetime.utcnow() - timedelta(days=d+1)).strftime("%Y%m%d")
+            day = (datetime.now(timezone.utc) - timedelta(days=d+1)).strftime("%Y%m%d")
             url = f"http://data.gdeltproject.org/gdeltv2/{day}000000.summary.gz"
             df = pd.read_csv(url, compression="gzip", sep="\t", header=None, low_memory=False)
             df["date"] = pd.to_datetime(day)
@@ -497,7 +509,7 @@ def fetch_gdelt_events(days=30):
 def today_ny():
     if US_TZ:
         return datetime.now(US_TZ).date()
-    return datetime.utcnow().date()
+    return datetime.now(timezone.utc).date()
 
 @tlog("fetch_te_calendar")
 @st.cache_data(ttl=60*15, show_spinner=False)  # refresh 15 min
@@ -820,7 +832,7 @@ with st.expander("🧾 Logs & Diagnostics", expanded=False):
         st.download_button(
             "⬇️ Download full logs",
             data="\n".join(st.session_state.logbuf),
-            file_name=f"macro_sector_logs_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.txt",
+            file_name=f"macro_sector_logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.txt",
             mime="text/plain"
         )
 

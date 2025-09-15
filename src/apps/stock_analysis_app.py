@@ -14,7 +14,7 @@ import ta
 # Configuration par défaut pour l'analyse d'une action
 DEFAULT_TICKER = "NGD.TO"  # New Gold Inc. (exemple)
 PEER_GROUPS = {
-    "Gold Miners": ["ABX.TO", "K.TO", "AEM.TO", "BTO.TO", "IMG.TO", "DGC.TO"],
+    "Gold Miners": ["ABX.TO", "K.TO", "AEM.TO", "BTO.TO", "IMG.TO", "OR.TO"],
     "Silver Miners": ["PAAS.TO", "EDR.TO", "FR.TO"],
     "Copper Miners": ["CS.TO", "TECK-B.TO", "LUN.TO", "FM.TO"],
     "Diversified Miners": ["RIO", "BHP", "VALE", "FCX"]
