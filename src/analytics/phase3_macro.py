@@ -25,12 +25,58 @@ import io
 import math
 import time
 import urllib.request
+import warnings
+import logging
 from dataclasses import dataclass, asdict
 from typing import Dict, List, Optional, Tuple, Any
 
 import numpy as np
 import pandas as pd
 import yfinance as yf
+
+logger = logging.getLogger("macroapp")
+logger.propagate = False  # <<< Prevent propagation to root logger
+
+def _warn_and_log(msg: str):
+    # Émet un vrai UserWarning (pour pytest.warns) + log WARNING
+    warnings.warn(msg, UserWarning)
+    logger.warning(msg)
+
+def _isfinite(x):
+    return isinstance(x, (int, float)) and math.isfinite(x)
+
+def _clean_non_finite(d, path="root", missing=None):
+    """
+    Remplace NaN/Inf par None et enregistre le chemin.
+    Ne droppe rien silencieusement.
+    """
+    if missing is None:
+        missing = []
+    if d is None:
+        return None, missing
+    if isinstance(d, (int, float)):
+        if not _isfinite(d):
+            missing.append(f"{path}:non-finite")
+            return None, missing
+        return d, missing
+    if isinstance(d, str):
+        if not d.strip():
+            missing.append(f"{path}:empty-str")
+            return None, missing
+        return d, missing
+    if isinstance(d, dict):
+        out = {}
+        for k, v in d.items():
+            cv, missing = _clean_non_finite(v, f"{path}.{k}", missing)
+            out[k] = cv
+        return out, missing
+    if isinstance(d, (list, tuple)):
+        out = []
+        for i, v in enumerate(d):
+            cv, missing = _clean_non_finite(v, f"{path}[{i}]", missing)
+            out.append(cv)
+        return out, missing
+    return d, missing
 
 # statsmodels (optionnel)
 try:
@@ -688,16 +734,22 @@ def get_macro_features() -> Dict[str, Any]:
         # Generate the macro nowcast
         nowcast = macro_nowcast(bundle)
 
-        # Return as dict
-        return {
+        macro_features = {
             "macro_nowcast": nowcast.to_dict(),
             "timestamp": bundle.data.index[-1] if not bundle.data.empty else None,
             "meta": bundle.meta
         }
 
+        clean, missing = _clean_non_finite(macro_features, "macro_features")
+        if missing:
+            logger.warning("sanitize(macro_features) normalized %d field(s): %s", len(missing), ", ".join(missing))
+            # expose dans meta pour la transparence I/O
+            clean.setdefault("meta", {}).setdefault("missing_fields", []).extend(missing)
+        return clean
+
     except Exception as e:
         # Return error dict
-        return {
+        macro_features = {
             "error": f"Failed to get macro features: {str(e)}",
             "macro_nowcast": {
                 "scores": {},
@@ -705,6 +757,12 @@ def get_macro_features() -> Dict[str, Any]:
             },
             "meta": {}
         }
+
+        clean, missing = _clean_non_finite(macro_features, "macro_features")
+        if missing:
+            logger.warning("sanitize(error_macro_features) normalized %d field(s): %s", len(missing), ", ".join(missing))
+            clean.setdefault("meta", {}).setdefault("missing_fields", []).extend(missing)
+        return clean
 
 
 def build_macro_view(ticker: str,

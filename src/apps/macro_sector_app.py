@@ -1,4 +1,4 @@
-# (Optionnel) source externe Firecrawl — on rend l'import safe
+# macro_sector_app.py
 try:
     from macro_firecrawl import get_macro_data_firecrawl  # optionnel
 except Exception:
@@ -20,12 +20,13 @@ import pandas as pd
 import requests
 import yfinance as yf
 import plotly.graph_objects as go
-import streamlit as st
+from utils.st_compat import get_st
+from utils.warn_log import warn_once
+st = get_st()
 
 
 def render_macro():
     """Fonction exportable pour afficher l'onglet Économie dans le hub"""
-    import streamlit as st
     st.header("Prévision macro (économie)")
     st.markdown("---")
 
@@ -35,6 +36,21 @@ DATA_STATUS: "OrderedDict[str, dict]" = OrderedDict()
 def set_status(name: str, ok: bool, detail: str = ""):
     """Enregistre l’état d’une source/feature pour l’encart 'Data status'."""
     DATA_STATUS[name] = {"ok": bool(ok), "detail": str(detail or "")}
+
+# ---------- Streamlit helpers ----------
+def is_streamlit_context():
+    """Vérifie si on est dans un contexte Streamlit valide."""
+    try:
+        import streamlit.runtime.scriptrunner.script_run_context as src
+        return src.get_script_run_ctx() is not None
+    except Exception:
+        return False
+
+def safe_st_action(action, *args, **kwargs):
+    """Exécute une action Streamlit en sécurité."""
+    if is_streamlit_context():
+        return action(*args, **kwargs)
+    return None
 
 # Optional: fredapi
 try:
@@ -49,7 +65,10 @@ try:
 except Exception:
     US_TZ = None
 
+# Supprime les warnings pandas courants
 warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+warnings.filterwarnings("ignore", category=pd.errors.SettingWithCopyWarning)
 
 # =============== LOGGING (in-memory) ===============
 if "logbuf" not in st.session_state:
@@ -322,6 +341,8 @@ def safe_call(_fn, *args, **kwargs):
     return call_safely(_fn, *args, **kwargs)
 
 # ================== CONNECTORS (FREE/FREEMIUM) ==================
+log = logging.getLogger("macroapp")
+
 @tlog("fetch_gscpi")
 def fetch_gscpi():
     """NY Fed GSCPI robuste → pd.Series(name='GSCPI')."""
@@ -340,7 +361,7 @@ def fetch_gscpi():
             text = r.text.strip()
             # Si HTML/JSON -> essayer quand même d'extraire une table simple ; sinon raise
             if not text or text[0] in ("<", "{"):
-                log_warn(f"GSCPI: URL {u} returned non-CSV content, skipping")
+                warn_once(log, f"GSCPI:{u}", f"GSCPI: Failed to fetch from {u}: non-CSV content", UserWarning)
                 continue
             # Essais multi-séparateurs
             for sep in [",", ";", "\t", r"\s+"]:
@@ -364,7 +385,7 @@ def fetch_gscpi():
             if val_col is None:
                 val_col = df.columns[1] if df.shape[1] >= 2 else None
             if val_col is None:
-                log_warn(f"GSCPI: Cannot find value column for URL {u}, skipping")
+                warn_once(log, f"GSCPI:column:{u}", f"GSCPI: Cannot find value column for URL {u}, skipping", UserWarning)
                 continue
             df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
             # gérer décimales avec virgule éventuelles
@@ -373,15 +394,15 @@ def fetch_gscpi():
             out = pd.Series(s.values, index=df[date_col], name="GSCPI").dropna()
             out = out[~out.index.duplicated()].sort_index()
             if out.empty:
-                log_warn(f"GSCPI: Parsed CSV empty from URL {u}, skipping")
+                warn_once(log, f"GSCPI:empty:{u}", f"GSCPI: Parsed CSV empty from URL {u}, skipping", UserWarning)
                 continue
             return out
         except Exception as e:
             last_err = e
-            log_warn(f"GSCPI: Failed to fetch from {u}: {e}")
+            warn_once(log, f"GSCPI:fetch:{u}", f"GSCPI: Failed to fetch from {u}: {e}", UserWarning)
             continue
     # Return None instead of raising an exception to make the system more resilient
-    log_warn(f"GSCPI fetch failed for all URLs, returning None. Last error: {last_err}")
+    warn_once(log, "GSCPI:fetch_all", f"GSCPI fetch failed for all URLs, returning None. Last error: {last_err}", UserWarning)
     return None
 
 @tlog("fetch_vix_history")
@@ -408,7 +429,7 @@ def fetch_gpr():
             r.raise_for_status()
             text = r.text.strip()
             if not text:
-                log_warn(f"GPR: Empty content from URL {u}, skipping")
+                warn_once(log, f"GPR:empty:{u}", f"GPR: Empty content from URL {u}, skipping", UserWarning)
                 continue
             # Essais multi-séparateurs
             for sep in [",", ";", "\t", r"\s+"]:
@@ -432,7 +453,7 @@ def fetch_gpr():
             if val_col is None:
                 val_col = df.columns[1] if df.shape[1] >= 2 else None
             if val_col is None:
-                log_warn(f"GPR: Cannot find GPR value column for URL {u}, skipping")
+                warn_once(log, f"GPR:column:{u}", f"GPR: Cannot find GPR value column for URL {u}, skipping", UserWarning)
                 continue
             df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
             s = pd.to_numeric(df[val_col].astype(str).str.replace(",", "."),
@@ -440,15 +461,15 @@ def fetch_gpr():
             out = pd.Series(s.values, index=df[date_col], name="GPR").dropna()
             out = out[~out.index.duplicated()].sort_index()
             if out.empty:
-                log_warn(f"GPR: Parsed CSV empty from URL {u}, skipping")
+                warn_once(log, f"GPR:empty:{u}", f"GPR: Parsed CSV empty from URL {u}, skipping", UserWarning)
                 continue
             return out
         except Exception as e:
             last_err = e
-            log_warn(f"GPR: Failed to fetch from {u}: {e}")
+            warn_once(log, f"GPR:fetch:{u}", f"GPR: Failed to fetch from {u}: {e}", UserWarning)
             continue
     # Return None instead of raising an exception to make the system more resilient
-    log_warn(f"GPR fetch failed for all URLs, returning None. Last error: {last_err}")
+    warn_once(log, "GPR:fetch_all", f"GPR fetch failed for all URLs, returning None. Last error: {last_err}", UserWarning)
     return None
 
 @tlog("fetch_boc_fx")
@@ -665,9 +686,8 @@ elif preset == "Risk-off":
 st.markdown("**Tip:** Adjust windows/presets & sensitivities; surprises ≈ rolling z-scores.**")
 
 # ============= DATA =============
-@tlog("fetch_macro")
-@st.cache_data(show_spinner=True, ttl=12*3600)
-def fetch_macro(fred_key, start):
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_fetch_macro(fred_key, start):
     frames = []
     for sid in FRED_SERIES.keys():
         df = load_fred_series(sid, fred_key, start=start)
@@ -681,7 +701,7 @@ def fetch_macro(fred_key, start):
     all_df = all_df[all_df.index >= pd.to_datetime(start)]
     return all_df
 
-macro = fetch_macro(fred_key, start_date)
+macro = cached_fetch_macro(fred_key, start_date)
 set_status("FRED macro", not macro.empty, "ok" if not macro.empty else "vide")
 if macro.empty:
     st.error("Unable to load macro data. Check your internet or FRED key.")
@@ -693,12 +713,11 @@ if getattr(themes.index, "tz", None) is not None:
 
 scores_scaled, scores_raw = sector_scores(themes, SENS_USED)
 
-@tlog("fetch_prices")
-@st.cache_data(show_spinner=True, ttl=6*3600)
-def fetch_prices(symbols, start):
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_fetch_prices(symbols, start):
     return get_multi_yf(symbols, start=str(start))
 
-prices = fetch_prices(symbols, start_date)
+prices = cached_fetch_prices(symbols, start_date)
 if getattr(prices.index, "tz", None) is not None:
     prices.index = prices.index.tz_localize(None)
 align_start = pd.to_datetime(themes.index.min())

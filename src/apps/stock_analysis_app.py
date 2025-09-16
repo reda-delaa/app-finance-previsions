@@ -1,3 +1,5 @@
+#stock_analysis_app.py
+
 import os
 import time
 from datetime import datetime, timedelta
@@ -7,7 +9,8 @@ import yfinance as yf
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-import streamlit as st
+from utils.st_compat import get_st
+st = get_st()
 import ta
 
 # ================== CONFIG ==================

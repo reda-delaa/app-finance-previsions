@@ -27,6 +27,7 @@ import yfinance as yf
 # Logging
 # ------------------------------------------------------------------------------
 logger = logging.getLogger("peers_finder")
+logger.propagate = False  # <<< Prevent propagation to root logger
 if not logger.handlers:
     h = logging.StreamHandler()
     h.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-7s | %(name)s | %(message)s", "%H:%M:%S"))

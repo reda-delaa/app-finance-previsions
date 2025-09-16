@@ -314,11 +314,11 @@ def detect_regime(ind: IndicatorSet) -> RegimeInfo:
     df = ind.df.copy()
     close = df["Close"].dropna()
     if len(close) < 220:
-        return RegimeInfo(trend="Range", vol_regime="LowVol")
+        return RegimeInfo(trend="Range", vol_regime="LowVol", slope200=0.0, drawdown_last=0.0)
 
     sma200 = df["SMA_200"].dropna()
     if len(sma200) < 60:
-        return RegimeInfo(trend="Range", vol_regime="LowVol")
+        return RegimeInfo(trend="Range", vol_regime="LowVol", slope200=0.0, drawdown_last=0.0)
 
     slope = df["Trend200_slope"].dropna()
     sl = slope.iloc[-1] if len(slope) else np.nan
@@ -344,8 +344,8 @@ def detect_regime(ind: IndicatorSet) -> RegimeInfo:
         if atr_pct >= 3.0:
             vol_regime = "HighVol"
 
-    return RegimeInfo(trend=trend, vol_regime=vol_regime, slope200=float(sl) if np.isfinite(sl) else None,
-                      drawdown_last=float(dd_last) if np.isfinite(dd_last) else None)
+    return RegimeInfo(trend=trend, vol_regime=vol_regime, slope200=float(sl) if np.isfinite(sl) else 0.0,
+                      drawdown_last=float(dd_last) if np.isfinite(dd_last) else 0.0)
 
 # -----------------------------------------------------------------------------#
 #                                   Risk Stats                                  #

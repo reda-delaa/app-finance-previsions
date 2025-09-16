@@ -7,50 +7,21 @@ if str(_SRC_ROOT) not in _sys.path:
     _sys.path.insert(0, str(_SRC_ROOT))
 # -------------------------------------
 
-# ---------- LOGGING GLOBAL (console + fichier tournant) ----------
-import logging, logging.handlers, time, os, warnings
-from pathlib import Path
+# ---------- LOGGING GLOBAL (avec Loguru colorié) ----------
+import time, warnings
+from hub.logging_setup import setup_logging, get_logger
 
-LOG_DIR = Path(_SRC_ROOT).parent / "logs"
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-LOG_FILE = LOG_DIR / "hub_app.log"
+# Initialiser le logging avec Loguru (couleurs incluses)
+setup_logging("DEBUG")
 
-_root = logging.getLogger()
-_root.setLevel(logging.DEBUG)  # on veut tout (tu peux repasser en INFO si trop verbeux)
+# Logger Loguru configuré pour l'application
+logger = get_logger("hub")
 
-# formateur compact mais riche
-_fmt = logging.Formatter(
-    "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-
-# handler console
-_ch = logging.StreamHandler()
-_ch.setLevel(logging.DEBUG)
-_ch.setFormatter(_fmt)
-# handler fichier tournant (5x5MB)
-_fh = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=5_000_000, backupCount=5, encoding="utf-8")
-_fh.setLevel(logging.DEBUG)
-_fh.setFormatter(_fmt)
-
-# purge handlers en double lors des reruns streamlit
-for h in list(_root.handlers):
-    _root.removeHandler(h)
-_root.addHandler(_ch)
-_root.addHandler(_fh)
-
-# capter warnings en logging
+# capter warnings en logging (compatible Loguru)
 warnings.filterwarnings("default")
-logging.captureWarnings(True)
 
-# baisser un peu le bruit de certaines libs (ajuste si besoin)
-logging.getLogger("urllib3").setLevel(logging.INFO)
-logging.getLogger("requests").setLevel(logging.INFO)
-logging.getLogger("yfinance").setLevel(logging.INFO)
-logging.getLogger("matplotlib").setLevel(logging.WARNING)
-logging.getLogger("PIL").setLevel(logging.WARNING)
-
-logger = logging.getLogger("hub")
+# Note: la configuration Loguru dans hub.logging_setup.py gère automatiquement
+# les niveaux de bruit des libs tierces comme urllib3, requests, etc.
 
 import traceback, importlib, sys, json
 import datetime as dt
@@ -392,11 +363,17 @@ with tabs[2]:
 
 with st.sidebar.expander("📜 Log (dernieres lignes)", expanded=False):
     try:
-        txt = (LOG_FILE.read_text(encoding="utf-8") if LOG_FILE.exists() else "")
+        # Utiliser le fichier log défini dans logging_setup.py
+        from pathlib import Path
+        LOG_DIR = Path(_SRC_ROOT).parent / "logs"
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        LOG_FILE_PATH = LOG_DIR / "hub_app.log"
+
+        txt = (LOG_FILE_PATH.read_text(encoding="utf-8") if LOG_FILE_PATH.exists() else "")
         # on coupe pour éviter de rendre des Mo dans streamlit
         lines = txt.splitlines()[-400:]
         st.code("\n".join(lines))
-        st.caption(f"Fichier: {LOG_FILE}")
+        st.caption(f"Fichier: {LOG_FILE_PATH}")
     except Exception as e:
         st.write(f"Impossible de lire le log: {e}")
 

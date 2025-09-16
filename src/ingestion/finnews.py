@@ -258,6 +258,22 @@ def bool_query_match(q: str, text: str) -> bool:
             return True
     return False
 
+def _matches_tickers(item, tickers):
+    if not tickers:
+        return True
+    tset = {t.upper() for t in tickers}
+    # 1) champ structuré s'il existe
+    for t in getattr(item, "tickers", []) or []:
+        if t and t.upper() in tset:
+            return True
+    # 2) fallback sur texte
+    hay = " ".join([
+        getattr(item, "title", "") or "",
+        getattr(item, "summary", "") or "",
+        getattr(item, "raw_text", "") or "",
+    ]).upper()
+    return any(re.search(rf"\b{re.escape(t)}\b", hay) for t in tset)
+
 
 # ============
 # News Schema
@@ -532,7 +548,7 @@ def filter_items(items: List[NewsItem],
             continue
         if events and not set(e.lower() for e in it.event_types).intersection(events):
             continue
-        if tickers and not set(tickers).intersection([t.upper() for t in it.tickers]):
+        if tickers and not _matches_tickers(it, tickers):
             continue
         out.append(it)
     return out
