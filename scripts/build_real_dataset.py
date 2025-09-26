@@ -35,7 +35,7 @@ except Exception:
     FINNEWS = None
 
 try:
-    from src.core import market_data as MARKET_DATA  # optional
+    from src.core import stock_utils as MARKET_DATA  # optional
 except Exception:
     MARKET_DATA = None
 

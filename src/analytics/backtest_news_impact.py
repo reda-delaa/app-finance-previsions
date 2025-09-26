@@ -49,7 +49,7 @@ import numpy as np
 import pandas as pd
 
 from core.io_utils import read_jsonl, write_jsonl, Cache, get_artifacts_dir
-from core.market_data import fetch_price_history
+from core.stock_utils import fetch_price_history
 from ingestion.finnews import Article  # Import the Article class from finnews.py
 
 try:
