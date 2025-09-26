@@ -38,18 +38,21 @@ class Config:
         
         # API Keys and credentials (prefer secrets_local.get_key when available)
         try:
-            from src.secrets_local import get_key  # type: ignore
+            try:
+                from secrets_local import get_key as _get_key  # type: ignore
+            except Exception:
+                from src.secrets_local import get_key as _get_key  # type: ignore
             # support both FINNHUB_API_KEY and FINNHUB_KEY
-            self.finnhub_key = (get_key('FINNHUB_KEY') or get_key('FINNHUB_API_KEY') or
-                                os.getenv('FINNHUB_KEY'))
+            self.finnhub_key = (_get_key('FINNHUB_KEY') or _get_key('FINNHUB_API_KEY') or
+                                os.getenv('FINNHUB_KEY') or os.getenv('FINNHUB_API_KEY'))
             # Alpha Vantage API key
-            self.alpha_vantage_key = (get_key('ALPHA_VANTAGE_KEY') or get_key('ALPHA_VANTAGE_API_KEY') or
-                                      os.getenv('ALPHA_VANTAGE_KEY'))
+            self.alpha_vantage_key = (_get_key('ALPHA_VANTAGE_KEY') or _get_key('ALPHA_VANTAGE_API_KEY') or
+                                      os.getenv('ALPHA_VANTAGE_KEY') or os.getenv('ALPHA_VANTAGE_API_KEY'))
             # Yahoo Finance API key (optional, mainly for premium features)
-            self.yahoo_api_key = (get_key('YAHOO_API_KEY') or os.getenv('YAHOO_API_KEY'))
+            self.yahoo_api_key = (_get_key('YAHOO_API_KEY') or os.getenv('YAHOO_API_KEY'))
         except Exception:
-            self.finnhub_key = os.getenv('FINNHUB_KEY')
-            self.alpha_vantage_key = os.getenv('ALPHA_VANTAGE_KEY')
+            self.finnhub_key = (os.getenv('FINNHUB_KEY') or os.getenv('FINNHUB_API_KEY'))
+            self.alpha_vantage_key = (os.getenv('ALPHA_VANTAGE_KEY') or os.getenv('ALPHA_VANTAGE_API_KEY'))
             self.yahoo_api_key = os.getenv('YAHOO_API_KEY')
         
         # Analysis parameters
@@ -119,12 +122,14 @@ class Config:
 
 
 # Global config instance
-# Charger des secrets locaux éventuels AVANT la validation
+# Charger des secrets locaux éventuels AVANT la validation (peu importe PYTHONPATH)
 try:
-    # ne plante pas si absent
-    import src.secrets_local  # noqa: F401
+    import secrets_local as _secrets  # noqa: F401
 except Exception:
-    pass
+    try:
+        import src.secrets_local as _secrets  # noqa: F401
+    except Exception:
+        _secrets = None  # ok si absent
 
 try:
     config = Config()

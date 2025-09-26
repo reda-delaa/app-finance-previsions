@@ -365,36 +365,35 @@ def get_peers_auto(user_input: str, min_peers: int = 5, max_peers: int = 15, log
     log.info(f"[{input_label}] peers retenus: {peers}")
     return peers
 
-def find_peers(ticker: str, k: int = 8):
-    """Fonction d'interface avec fallback si pas d'API Finnhub"""
+def find_peers(ticker: str, k: int = 10):
+    """Fonction d'interface avec fallback corrélation Yahoo si pas d'API Finnhub"""
+    # Try Finnhub first
     try:
         peers = get_peers_auto(ticker, min_peers=k, max_peers=k)
         if peers:
             return peers
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Finnhub peers failed, trying correlation fallback: {e}")
 
-    # --- Fallback simple via yfinance (même secteur/industry) ---
+    # Fallback: corrélation sur un univers réduit d'ETFs/large caps
     try:
+        universe = ["AAPL","MSFT","GOOGL","AMZN","META","NVDA","TSLA",
+                   "XOM","JNJ","JPM","V","MA","UNH","HD","PG","KO","PEP"]
+        if ticker not in universe:
+            universe.insert(0, ticker)
+
         import pandas as pd
-        info = _yf_info(yf.Ticker(ticker))
-        sector = info.get("sector")
-        industry = info.get("industry")
-        if not sector:
+        px = yf.download(universe, period="1y", interval="1d", auto_adjust=True)["Close"]
+        ret = px.pct_change().dropna()
+        if ticker not in ret.columns:
             return []
-        # Heuristique: prendre un panel d'actions US fréquentes, filtrer par secteur/industry
-        candidates = ["AAPL","MSFT","GOOGL","AMZN","META","NVDA","TSLA","ORCL","IBM","INTC","CRM","ADBE","AMD","NFLX","AVGO"]
-        out = []
-        for t in candidates:
-            try:
-                i = _yf_info(yf.Ticker(t))
-                if i.get("sector") == sector and (not industry or i.get("industry") == industry):
-                    out.append(t)
-            except Exception:
-                pass
-        out = [p for p in out if p != ticker][:k]
-        return out
-    except Exception:
+        corr = ret.corr()[ticker].drop(ticker).sort_values(ascending=False)
+        correlation_peers = corr.head(k).index.tolist()
+        logger.info(f"[{ticker}] Using correlation-based peers fallback: {correlation_peers}")
+        return correlation_peers
+
+    except Exception as e:
+        logger.warning(f"Correlation peers fallback failed: {e}")
         return []
 
 # ------------------------------------------------------------------------------

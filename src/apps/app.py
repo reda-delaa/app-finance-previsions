@@ -1,104 +1,238 @@
 # src/apps/app.py
-# --- sys.path bootstrap (CRITIQUE) ---
+# ======================================================================================
+# Hub Streamlit — Analyse Financière (version lisible, sans abréviations, tout visible)
+# - Bootstrap sys.path
+# - Logging (Loguru via hub.logging_setup)
+# - Helpers d’affichage SANS abréviations + rendu intégral (pas d’expander)
+# - Bloc "Prévision macro (économie)" TOUT EN HAUT (avant les onglets)
+# - UI robuste : news items dict/obj, erreurs visibles à l’écran
+# ======================================================================================
+
+# ---- sys.path bootstrap (CRITIQUE) ----
 from pathlib import Path
 import sys as _sys
 _SRC_ROOT = Path(__file__).resolve().parents[1]   # .../analyse-financiere/src
 if str(_SRC_ROOT) not in _sys.path:
     _sys.path.insert(0, str(_SRC_ROOT))
-# -------------------------------------
+# ---------------------------------------
 
-# ---------- LOGGING GLOBAL (avec Loguru colorié) ----------
-import time, warnings
-from hub.logging_setup import setup_logging, get_logger
+# ---------- LOGGING GLOBAL (JSON avec tracing) ----------
+from core_runtime import log, get_trace_id, set_trace_id, new_trace_id, ui_event
 
-# Initialiser le logging avec Loguru (couleurs incluses)
-setup_logging("DEBUG")
-
-# Logger Loguru configuré pour l'application
-logger = get_logger("hub")
-
-# capter warnings en logging (compatible Loguru)
+# Capturer les warnings dans le log
+import warnings
 warnings.filterwarnings("default")
 
-# Note: la configuration Loguru dans hub.logging_setup.py gère automatiquement
-# les niveaux de bruit des libs tierces comme urllib3, requests, etc.
-
-import traceback, importlib, sys, json
-import datetime as dt
+# ---------- IMPORTS UI / DATA ----------
 import streamlit as st
+import pandas as pd
+import time, traceback, importlib, sys, os, platform, json
+from typing import Optional
 
-# (optionnel) hook global pour exceptions non catchées
+# ---------- HOOK EXCEPTIONS ----------
 def _excepthook(tp, val, tb):
-    logger.critical("UNCAUGHT: %s: %s\n%s", tp.__name__, val, "".join(traceback.format_tb(tb)))
+    try:
+        stack = "".join(traceback.format_tb(tb))
+    except Exception:
+        stack = "<traceback indisponible>"
+    log.critical(f"UNCAUGHT: {tp.__name__}: {val}\n{stack}")
 _sys.excepthook = _excepthook
 
-st.set_page_config(page_title="Analyse Financière — Hub", layout="wide")
+# ---------- PAGE CONFIG ----------
+st.set_page_config(page_title="Analyse Financière — Hub", layout="wide", initial_sidebar_state="expanded")
 st.title("📈 Analyse Financière — Hub IA")
 
-_DEBUG = st.sidebar.checkbox("Afficher DEBUG", value=True)
+# ---------- API KEY CHECK ----------
+try:
+    from utils.config import get_cfg  # project-level if present
+    cfg = get_cfg()
+    if not cfg.has_any_fin_api():
+        st.info("⚠️ Clé API financière absente : certaines fonctions (peers avancés, news enrichies) basculent en mode dégradé. Renseignez vos clés dans **Réglages de l'analyse**.")
+except Exception as e:
+    st.warning(f"Vérification des clés API impossible : {e}")
+    log.warning(f"API key check failed: {e}")
+    # Fallback configuration when import fails
+    def get_cfg():
+        # fallback: lit les variables d'env, sinon None
+        import os
+        return type('Config', (), {
+            'has_any_fin_api': lambda: any([
+                os.getenv("FRED_API_KEY"),
+                os.getenv("FINNHUB_API_KEY"),
+                os.getenv("TE_USER"),
+                os.getenv("TE_KEY")
+            ])
+        })()
+    cfg = get_cfg()
+else:
+    # No exception occurred, check if API keys are configured
+    pass  # cfg is already set from the successful import
 
-def _json_s(obj):
-    """repr JSON safe pour logs (pas d'exceptions)."""
+# ---------- SESSION TRACE ----------
+def _ensure_session_trace():
+    if "trace_id" not in st.session_state or not st.session_state["trace_id"]:
+        st.session_state["trace_id"] = new_trace_id()
+    else:
+        set_trace_id(st.session_state["trace_id"])
+
+# ---------- DEBUG TOGGLE ----------
+_DEBUG = st.sidebar.checkbox("Afficher les messages de débogage", value=True)
+
+def _json_s(obj, limit=2000):
+    """repr JSON safe pour logs (pas d’exceptions)."""
     try:
-        import json
-        return json.dumps(obj, ensure_ascii=False, default=str)[:2000]
+        return json.dumps(obj, ensure_ascii=False, default=str)[:limit]
     except Exception:
-        return str(obj)[:2000]
+        return str(obj)[:limit]
 
 def log_exc(where: str, exc: BaseException):
-    logger.error("EXC @ %s: %s\n%s", where, exc, traceback.format_exc())
+    log.error(f"EXC @ {where}: {exc}\n{traceback.format_exc()}")
     if _DEBUG:
-        with st.sidebar.expander(f"Exception @ {where}", expanded=False):
-            st.code(traceback.format_exc())
-
-def trace_call(name: str, fn):
-    """wrappe une fonction pour loguer entrée/sortie/durée/erreur."""
-    if fn is None or not callable(fn):
-        return fn
-    def _wrapped(*args, **kwargs):
-        t0 = time.perf_counter()
-        logger.debug("→ %s args=%s kwargs=%s", name, _json_s(args), _json_s(kwargs))
-        try:
-            out = fn(*args, **kwargs)
-            dt = (time.perf_counter() - t0) * 1000
-            logger.debug("← %s (%.1f ms) result=%s", name, dt, _json_s(out))
-            return out
-        except Exception as e:
-            dt = (time.perf_counter() - t0) * 1000
-            logger.error("✖ %s FAILED (%.1f ms): %s", name, dt, e)
-            log_exc(name, e)
-            raise
-    return _wrapped
+        st.sidebar.code(f"[{where}] {traceback.format_exc()}")
 
 def log_debug(msg: str):
     if _DEBUG:
         st.sidebar.write(f"DEBUG: {msg}")
-    # toujours log en console
-    print(msg, flush=True)
+    log.debug(msg)
 
-def safe_import(path: str, attr: str | None = None):
+# ---------- IMPORT ROBUSTE + TRACE ----------
+def trace_call(name: str, fn):
+    """Wrappe une fonction pour loguer entrée/sortie/durée/erreur."""
+    if fn is None or not callable(fn):
+        return fn
+
+    def _wrapped(*args, **kwargs):
+        t0 = time.perf_counter()
+        log.debug(f"→ {name} args={_json_s(args)} kwargs={_json_s(kwargs)}")
+        import warnings as _warnings
+        try:
+            with _warnings.catch_warnings(record=True) as _caught:
+                _warnings.simplefilter("always")
+                out = fn(*args, **kwargs)
+            # refléter tout warning émis pendant l'appel dans le logger
+            for w in _caught:
+                try:
+                    log.warning(str(w.message))
+                except Exception:
+                    pass
+            dt = (time.perf_counter() - t0) * 1000
+            # éviter d’inonder les logs avec des mégastructures
+            log.debug(f"← {name} ({dt:.1f} ms) result={type(out).__name__}")
+            return out
+        except Exception as e:
+            dt = (time.perf_counter() - t0) * 1000
+            log.error(f"✖ {name} FAILED ({dt:.1f} ms): {e}")
+            log_exc(name, e)
+            raise
+    return _wrapped
+
+def safe_import(path: str, attr: Optional[str] = None):
     """
-    Import robuste : retourne (objet|None, erreur|None) ET logue le timing + chemin.
+    Import robuste : retourne (objet|None, erreur|None) ET logue timing + fichier.
     """
     t0 = time.perf_counter()
     try:
         mod = importlib.import_module(path)
         dt = (time.perf_counter() - t0) * 1000
         if attr is None:
-            logger.debug("import %s OK (%.1f ms) file=%s", path, dt, getattr(mod, "__file__", "?"))
+            log.debug(f"import {path} OK ({dt:.1f} ms) file={getattr(mod,'__file__','?')}")
             return mod, None
         if not hasattr(mod, attr):
-            logger.error("import %s.%s ABSENT (%.1f ms)", path, attr, dt)
+            log.error(f"import {path}.{attr} ABSENT ({dt:.1f} ms)")
             return None, f"module '{path}' has no attribute '{attr}'"
         obj = getattr(mod, attr)
-        logger.debug("import %s.%s OK (%.1f ms) file=%s", path, attr, dt, getattr(mod, "__file__", "?"))
+        log.debug(f"import {path}.{attr} OK ({dt:.1f} ms) file={getattr(mod,'__file__','?')}")
         return obj, None
     except Exception as e:
         dt = (time.perf_counter() - t0) * 1000
-        logger.error("import %s%s FAILED (%.1f ms): %s", path, f'.{attr}' if attr else "", dt, e)
+        log.error(f"import {path}{'.'+attr if attr else ''} FAILED ({dt:.1f} ms): {e}")
         return None, f"{e.__class__.__name__}: {e}"
 
-# ===== UI pages =====
+# ---------- GLOSSAIRE (pas d’abréviations en UI) ----------
+# NOTE: on remplace à l’affichage, sans modifier tes structures de données internes
+_GLOSSARY = {
+    # Macro
+    "CPI": "Indice des prix à la consommation (inflation)",
+    "CoreCPI": "Indice des prix à la consommation hors énergie et alimentation",
+    "YoY": "Évolution sur un an",
+    "MoM": "Évolution par rapport au mois précédent",
+    "GDP": "Produit intérieur brut (croissance)",
+    "INDPRO": "Production industrielle",
+    "PAYEMS": "Emploi non agricole (NFP)",
+    "FedFunds": "Taux directeur de la Réserve fédérale",
+    "Breakeven": "Inflation implicite (breakeven)",
+    "YieldSlope_Tight": "Pente de la courbe des taux (aplatie/inversée)",
+    "USD": "Dollar américain",
+    "Commodities": "Matières premières",
+    "VIX": "Indice de volatilité (VIX)",
+    "GPR": "Indice de risque géopolitique",
+    "GSCPI": "Indice de pression des chaînes d’approvisionnement (Fed de New York)",
+    # Actions / technique
+    "RSI": "Indice de force relative (RSI)",
+    "MACD": "Convergence–Divergence des moyennes mobiles (MACD)",
+    "SMA": "Moyenne mobile simple",
+    "EMA": "Moyenne mobile exponentielle",
+    "ATR": "Véritable amplitude moyenne (ATR)",
+    "BBands": "Bandes de Bollinger",
+    "Vol": "Volatilité",
+    "Ret": "Rendement",
+    "EPS": "Bénéfice par action",
+    "PE": "Ratio cours/bénéfice (P/E)",
+    "EV/EBITDA": "Valeur d’entreprise / EBITDA",
+}
+
+def expand_label(label: str) -> str:
+    if not isinstance(label, str) or not label:
+        return str(label)
+    out = label
+    for abbr, full in _GLOSSARY.items():
+        out = out.replace(abbr, full)
+    return out
+
+def expand_columns(df: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
+    if df is None:
+        return None
+    try:
+        return df.rename(columns=lambda c: expand_label(str(c)))
+    except Exception:
+        return df
+
+def to_mapping(obj):
+    """Transforme proprement en dict pour affichage (supporte objets news custom)."""
+    try:
+        if obj is None:
+            return {}
+        if isinstance(obj, dict):
+            return obj
+        if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict")):
+            return obj.to_dict()
+        # dataclass / simple objets
+        if hasattr(obj, "__dict__"):
+            d = {k: v for k, v in vars(obj).items() if not k.startswith("_")}
+            return d
+        # fallback : représentation texte
+        return {"value": str(obj)}
+    except Exception as e:
+        return {"value": f"<non sérialisable: {e}>"}
+
+def show_full(name: str, data):
+    """Affiche tout, sans cacher : DataFrame -> tableau; dict/list -> JSON; autre -> texte."""
+    st.markdown(f"### {expand_label(name)}")
+    if isinstance(data, pd.DataFrame):
+        st.dataframe(expand_columns(data), width='stretch', height=500)
+    elif isinstance(data, (list, tuple)):
+        # Tenter de convertir chaque élément en dict
+        mapped = [to_mapping(x) for x in data]
+        st.json(mapped)
+    elif isinstance(data, dict):
+        st.json(data)
+    else:
+        try:
+            st.json(json.loads(str(data)))
+        except Exception:
+            st.write(data)
+
+# ---------- IMPORT DES MODULES (tracés) ----------
 render_macro, err = safe_import("apps.macro_sector_app", "render_macro")
 if err: log_debug(f"Failed to import apps.macro_sector_app.render_macro: {err}")
 render_stock, err = safe_import("apps.stock_analysis_app", "render_stock")
@@ -106,26 +240,24 @@ if err: log_debug(f"Failed to import apps.stock_analysis_app.render_stock: {err}
 render_macro = trace_call("render_macro", render_macro)
 render_stock = trace_call("render_stock", render_stock)
 
-# ===== Providers =====
 find_peers, err = safe_import("research.peers_finder", "find_peers")
 if err: log_debug(f"Failed to import research.peers_finder.find_peers: {err}")
 find_peers = trace_call("find_peers", find_peers)
 
-# News (wrapper pipeline -> load_news signature unifiée)
 _run_pipeline, err = safe_import("ingestion.finnews", "run_pipeline")
 if err: log_debug(f"Failed to import ingestion.finnews.run_pipeline: {err}")
+
 def _load_news_wrapper(window_days=7, regions=None, sectors=None, tickers=None):
-    logger.debug("load_news.wrapper IN window_days=%s regions=%s sectors=%s tickers=%s",
-                 window_days, regions, sectors, tickers)
+    log.debug(f"load_news.IN days={window_days} regions={regions} sectors={sectors} tickers={tickers}")
     if _run_pipeline is None:
         return []
     out = _run_pipeline(
         regions=regions or ["US", "CA", "INTL", "GEO"],
         window=max(1, int(window_days or 7)),
-        query=" ".join(tickers or []),
+        query=" ".join([t for t in (tickers or []) if t]),
         limit=50
     )
-    logger.debug("load_news.wrapper OUT items=%s", len(out) if hasattr(out, "__len__") else "<?>")
+    log.debug(f"load_news.OUT count={len(out) if hasattr(out,'__len__') else '<?>'}")
     return out
 load_news = trace_call("load_news", _load_news_wrapper if _run_pipeline else None)
 
@@ -148,10 +280,10 @@ def _resolve_ask_model():
         ("research.nlp_enrich", "query_model"),
         ("analytics.nlp_enrich", "ask_model"),
     ]:
-        fn, err = safe_import(path, attr)
-        if not err and fn:
+        fn, err_ = safe_import(path, attr)
+        if not err_ and fn:
             return trace_call(f"{path}.{attr}", fn)
-        log_debug(f"Failed to import {path}.{attr}: {err}")
+        log_debug(f"Failed to import {path}.{attr}: {err_}")
     return None
 ask_model = _resolve_ask_model()
 
@@ -159,8 +291,8 @@ ask_model = _resolve_ask_model()
 def _resolve_arbitre():
     # fonctions directes
     for attr in ("arbitre", "arbitrage"):
-        fn, err = safe_import("analytics.econ_llm_agent", attr)
-        if not err and fn:
+        fn, err_ = safe_import("analytics.econ_llm_agent", attr)
+        if not err_ and fn:
             return trace_call(f"econ_llm_agent.{attr}", lambda ctx: fn(ctx))
 
     # classe EconomicAnalyst/EconomicInput
@@ -169,7 +301,7 @@ def _resolve_arbitre():
     if not err1 and Cls and not err2 and Inp:
         def _call(ctx: dict):
             t0 = time.perf_counter()
-            logger.debug("→ arbitre.analyze ctx=%s", _json_s(ctx))
+            log.debug(f"→ arbitre.analyze ctx={_json_s(ctx)}")
             try:
                 analyst = Cls()
                 if hasattr(analyst, "analyze"):
@@ -185,7 +317,6 @@ def _resolve_arbitre():
                     )
                     out = analyst.analyze(input_obj)
                 else:
-                    # fallback sur méthodes candidates
                     for cand in ("arbitre","arbitrage","judge","aggregate","decide"):
                         if hasattr(analyst, cand):
                             out = getattr(analyst, cand)(ctx)
@@ -193,11 +324,11 @@ def _resolve_arbitre():
                     else:
                         raise RuntimeError("Aucune méthode d'arbitrage sur EconomicAnalyst")
                 dt = (time.perf_counter()-t0)*1000
-                logger.debug("← arbitre.analyze (%.1f ms) out=%s", dt, _json_s(out))
+                log.debug(f"← arbitre.analyze ({dt:.1f} ms) out={type(out).__name__}")
                 return out
             except Exception as e:
                 dt = (time.perf_counter()-t0)*1000
-                logger.error("✖ arbitre.analyze FAILED (%.1f ms): %s", dt, e)
+                log.error(f"✖ arbitre.analyze FAILED ({dt:.1f} ms): {e}")
                 log_exc("arbitre.analyze", e)
                 raise
         return _call
@@ -205,176 +336,302 @@ def _resolve_arbitre():
     return None
 arbitre = _resolve_arbitre()
 
-# ===== UI =====
-tabs = st.tabs(["💰 Économie", "📊 Action", "📰 Actu"])
+# ======================================================================================
+# SECTION PRIORITAIRE EN HAUT : "Prévision macro (économie)"
+# - Pas d’abréviation dans les libellés
+# - Tout est affiché (pas d’expander)
+# ======================================================================================
+st.markdown("## 🔮 Prévision macro (économie) — synthèse lisible")
 
-# ---- Tab 1: Macro ----
-with tabs[0]:
-    logger.info("TAB Macro opened")
-    if render_macro:
-        try:
-            render_macro()
-        except Exception as e:
-            st.error(f"Erreur render_macro: {e}")
-            st.code(traceback.format_exc())
-    else:
-        st.warning("Module macro_sector_app indisponible")
+# 1) Question au modèle (texte par défaut explicite)
+default_q = "Peux-tu me donner une prévision claire et vulgarisée de l'inflation et de la croissance aux États-Unis pour les 6 prochains mois ?"
+user_q = st.text_area(
+    "Formule ta question :", 
+    value=default_q,
+    help="Pose une question en langage naturel. Exemple : 'Que prévois-tu sur l'inflation américaine à 6 mois ?'",
+    key="macro_q_top"
+)
 
-    with st.expander("🤖 Analyse IA (NLP_enrich)"):
-        if not ask_model:
-            st.info("NLP_enrich indisponible (ask_model non trouvé).")
-        else:
-            q = st.text_input("Question au modèle", placeholder="Que prévois-tu sur l'inflation à 6 mois ?")
-            logger.debug("UI macro.question=%s", q)
-            context = {}
+# 2) Caractéristiques macro (brutes) + version “expurgée” (colonnes explicitées)
+macro_feats = None
+try:
+    if get_macro_features:
+        macro_feats = get_macro_features()
+        # Brute
+        show_full("Caractéristiques macroéconomiques (brutes)", macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict())
+except BaseException as e:
+    st.error(f"Chargement des caractéristiques macroéconomiques impossible : {e}")
+    log_exc("get_macro_features(top)", e)
+
+# 3) Analyse IA (si disponible)
+if ask_model:
+    try:
+        context = {}
+        if macro_feats is not None:
+            context["macro_features"] = macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
+        st.markdown("### 🤖 Analyse par le modèle de langage (IA)")
+        if st.button("Lancer l'analyse macro IA", key="macro_ask_top"):
+            ans = ask_model(user_q, context=context)
+            # on affiche tel quel (le modèle peut renvoyer texte/markdown/json)
+            show_full("Réponse détaillée du modèle IA", ans)
+    except Exception as e:
+        st.error(f"Analyse IA indisponible : {e}")
+        log_exc("ask_model(top)", e)
+else:
+    st.info("Le module d'analyse IA (NLP_enrich) n'est pas disponible.")
+
+# 4) Arbitre (synthèse de signaux macro)
+if arbitre:
+    try:
+        ctx = {"scope": "macro"}
+        if macro_feats is not None:
+            ctx["macro_features"] = macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
+        st.markdown("### ⚖️ Synthèse de signaux macro (arbitre)")
+        decision = arbitre(ctx)
+        show_full("Décision / synthèse de signaux macro", decision)
+    except Exception as e:
+        st.error(f"Arbitre indisponible : {e}")
+        log_exc("arbitre(top)", e)
+else:
+    st.info("Le module d'arbitrage (econ_llm_agent) n'est pas disponible.")
+
+st.markdown("---")
+
+# ======================================================================================
+# ONGLET 1 : Économie (module macro)
+# ======================================================================================
+tabs = st.tabs(["💰 Économie (détails)", "📊 Action (détails)", "📰 Actualités (tout afficher)"])
+
+def main():
+    _ensure_session_trace()
+    st.caption(f"Trace ID: `{st.session_state['trace_id']}`")
+
+    st.markdown("## 🔮 Prévision macro (économie) — synthèse lisible")
+
+    # 1) Question au modèle (texte par défaut explicite)
+    default_q = "Peux-tu me donner une prévision claire et vulgarisée de l'inflation et de la croissance aux États-Unis pour les 6 prochains mois ?"
+    user_q = st.text_area(
+        "Formule ta question :",
+        value=default_q,
+        help="Pose une question en langage naturel. Exemple : 'Que prévois-tu sur l'inflation américaine à 6 mois ?'",
+        key="macro_q_main"
+    )
+
+    # 2) Caractéristiques macro (brutes) + version "expurgée" (colonnes explicitées)
+    macro_feats = None
+    try:
+        with ui_event("load_macro_features"):
             if get_macro_features:
-                try:
-                    mf = get_macro_features()
-                    # jsonifiable si nécessaire
-                    context["macro_features"] = mf.to_dict() if hasattr(mf, "to_dict") else mf
-                except Exception as e:
-                    st.warning(f"get_macro_features() a échoué: {e}")
-            if st.button("Poser la question (macro)"):
-                logger.info("BTN macro.ask clicked")
-                try:
-                    ans = ask_model(q, context=context)
-                    st.write(ans)
-                except Exception as e:
-                    st.error(f"ask_model a échoué: {e}")
-                    st.code(traceback.format_exc())
+                macro_feats = get_macro_features()
+                # Brute
+                show_full("Caractéristiques macroéconomiques (brutes)", macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict())
+    except Exception as e:
+        st.error(f"Chargement des caractéristiques macroéconomiques impossible : {e}")
+        log_exc("get_macro_features(top)", e)
 
-    with st.expander("⚖️ Arbitre (signaux macro)"):
-        if not arbitre:
-            st.info("Arbitre indisponible.")
-        else:
-            try:
-                ctx = {"scope": "macro"}
-                if get_macro_features:
-                    ctx["macro_features"] = get_macro_features()
-                decision = arbitre(ctx)
-                st.json(decision)
-            except Exception as e:
-                st.error(f"arbitre() a échoué: {e}")
-                st.code(traceback.format_exc())
-
-# ---- Tab 2: Stock ----
-with tabs[1]:
-    logger.info("TAB Stock opened")
-    default_ticker = st.session_state.get("ticker", "AAPL")
-    logger.debug("state.ticker=%s", default_ticker)
-    if render_stock:
+    # 3) Analyse IA (si disponible)
+    if ask_model:
         try:
-            render_stock(default_ticker=default_ticker)
+            context = {}
+            if macro_feats is not None:
+                context["macro_features"] = macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
+            st.markdown("### 🤖 Analyse par le modèle de langage (IA)")
+            if st.button("Lancer l'analyse macro IA", key="macro_ask_main"):
+                with ui_event("ask_macro_question", question=user_q[:100]):
+                    ans = ask_model(user_q, context=context)
+                    # on affiche tel quel (le modèle peut renvoyer texte/markdown/json)
+                    show_full("Réponse détaillée du modèle IA", ans)
         except Exception as e:
-            st.error(f"Erreur render_stock: {e}")
-            st.code(traceback.format_exc())
+            st.error(f"Analyse IA indisponible : {e}")
+            log_exc("ask_model(top)", e)
     else:
-        st.warning("Module stock_analysis_app indisponible")
+        st.info("Le module d'analyse IA (NLP_enrich) n'est pas disponible.")
 
-    with st.expander("🧩 Peers (comparables)"):
-        ticker = st.text_input("Ticker (peers)", value=default_ticker, key="peers_ticker").upper()
-        k = st.slider("Nombre de comparables", 3, 20, 8)
-        logger.debug("UI peers.ticker=%s k=%s", ticker, k)
-        if not find_peers:
-            st.info("Peers finder indisponible.")
-        else:
-            try:
-                peers = find_peers(ticker, k=k)
-                if isinstance(peers, dict) and "peers" in peers:
-                    peers = peers["peers"]
-                st.write(peers if peers else "Aucun peer trouvé.")
-            except Exception as e:
-                st.error(f"find_peers a échoué: {e}")
-                st.code(traceback.format_exc())
+    # 4) Arbitre (synthèse de signaux macro)
+    if arbitre:
+        try:
+            ctx = {"scope": "macro"}
+            if macro_feats is not None:
+                ctx["macro_features"] = macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
+            st.markdown("### ⚖️ Synthèse de signaux macro (arbitre)")
+            with ui_event("run_arbitre", scope="macro"):
+                decision = arbitre(ctx)
+                show_full("Décision / synthèse de signaux macro", decision)
+        except Exception as e:
+            st.error(f"Arbitre indisponible : {e}")
+            log_exc("arbitre(top)", e)
+    else:
+        st.info("Le module d'arbitrage (econ_llm_agent) n'est pas disponible.")
 
-    with st.expander("🤖 Analyse IA (NLP_enrich)"):
-        if not ask_model:
-            st.info("NLP_enrich indisponible.")
-        else:
-            q2 = st.text_input("Question au modèle", placeholder="Le momentum de MSFT est-il soutenable 3 mois ?", key="stock_q")
-            ticker2 = st.text_input("Ticker contexte", value=default_ticker, key="stock_ctx_ticker").upper()
-            logger.debug("UI stock.qa q2=%s ticker2=%s", q2, ticker2)
+    st.markdown("---")
+
+    # ======================================================================================
+    # TABS
+    # ======================================================================================
+    tabs = st.tabs(["💰 Économie (détails)", "📊 Action (détails)", "📰 Actualités (tout afficher)"])
+
+    with tabs[0]:
+        with ui_event("render_tab", ui_page="macro"):
+            if render_macro:
+                try:
+                    render_macro()
+                except Exception as e:
+                    st.error(f"Erreur lors de l'affichage macro détaillé : {e}")
+                    st.code(traceback.format_exc())
+            else:
+                st.warning("Module macro_sector_app indisponible")
+
+    with tabs[1]:
+        default_ticker = st.session_state.get("ticker", "AAPL")
+        st.write(f"**Symbole analysé par défaut :** {default_ticker}")
+        with ui_event("render_tab", ui_page="stock"):
+            if render_stock:
+                try:
+                    render_stock(default_ticker=default_ticker)  # pas d'expander : affichage complet dans le module
+                except Exception as e:
+                    st.error(f"Erreur render_stock: {e}")
+                    st.code(traceback.format_exc())
+            else:
+                st.warning("Module stock_analysis_app indisponible")
+
+            # Peers — affichage direct (pas d'expander)
+            st.markdown("### 🧩 Entreprises comparables (peers)")
+            ticker = st.text_input("Symbole boursier pour la recherche de comparables", value=default_ticker, key="peers_ticker").upper()
+            k = st.slider("Nombre d'entreprises comparables à afficher", 3, 30, 10)
+            if find_peers:
+                try:
+                    with ui_event("find_peers", ui_page="stock", ticker=ticker, count=k):
+                        peers = find_peers(ticker, k=k)
+                        if isinstance(peers, dict) and "peers" in peers:
+                            peers = peers["peers"]
+                        show_full(f"Liste des comparables pour {ticker}", peers)
+                except Exception as e:
+                    st.error(f"Recherche de comparables impossible : {e}")
+                    st.code(traceback.format_exc())
+            else:
+                st.info("Le module de recherche de comparables n'est pas disponible.")
+
+            # Q&A IA sur un titre — affichage direct
+            st.markdown("### 🤖 Question au modèle (contexte valeurs et marché)")
+            q2 = st.text_input(
+                "Pose une question sur un titre coté ou un secteur",
+                placeholder="Exemple : 'Le momentum de MSFT est-il soutenable sur 3 mois ?'",
+                key="stock_q"
+            )
+            ticker2 = st.text_input("Symbole pour le contexte (analyse technique/fondamentale/news)", value=default_ticker, key="stock_ctx_ticker").upper()
+
             ctx2 = {"scope": "stock", "ticker": ticker2}
             if compute_technical_features:
                 try:
-                    tf = compute_technical_features(ticker2, window=180)
-                    ctx2["tech_features"] = tf.to_dict() if hasattr(tf, "to_dict") else tf
+                    with ui_event("load_tech_features", ticker=ticker2):
+                        tf = compute_technical_features(ticker2, window=180)
+                        ctx2["tech_features"] = tf if not hasattr(tf, "to_dict") else tf.to_dict()
                 except Exception as e:
-                    st.warning(f"compute_technical_features a échoué: {e}")
+                    st.warning(f"Indicateurs techniques indisponibles : {e}")
             if load_fundamentals:
                 try:
-                    ctx2["fundamentals"] = load_fundamentals(ticker2)
+                    with ui_event("load_fundamentals", ticker=ticker2):
+                        ctx2["fundamentals"] = load_fundamentals(ticker2)
                 except Exception as e:
-                    st.warning(f"load_fundamentals a échoué: {e}")
+                    st.warning(f"Données fondamentales indisponibles : {e}")
             if load_news:
                 try:
-                    ctx2["news"] = load_news(window_days=14, tickers=[ticker2])
+                    with ui_event("load_news", tickers=[ticker2]):
+                        ctx2["news"] = load_news(window_days=14, tickers=[ticker2])
                 except Exception as e:
-                    st.warning(f"load_news a échoué: {e}")
-            if st.button("Poser la question (stock)"):
-                logger.info("BTN stock.ask clicked")
-                try:
-                    ans2 = ask_model(q2, context=ctx2)
-                    st.write(ans2)
-                except Exception as e:
-                    st.error(f"ask_model a échoué: {e}")
-                    st.code(traceback.format_exc())
+                    st.warning(f"Chargement des actualités indisponible : {e}")
 
-    with st.expander("⚖️ Arbitre (signaux action)"):
-        if not arbitre:
-            st.info("Arbitre indisponible.")
-        else:
-            try:
-                ctx3 = {"scope": "stock", "ticker": default_ticker}
-                if compute_technical_features:
-                    ctx3["tech_features"] = compute_technical_features(default_ticker, window=180)
-                if load_fundamentals:
-                    ctx3["fundamentals"] = load_fundamentals(default_ticker)
-                decision2 = arbitre(ctx3)
-                st.json(decision2)
-            except Exception as e:
-                st.error(f"arbitre() a échoué: {e}")
-                st.code(traceback.format_exc())
-
-# ---- Tab 3: News ----
-with tabs[2]:
-    logger.info("TAB News opened")
-    st.subheader("🗞️ Actu économique")
-    if not load_news:
-        st.info("Module news indisponible.")
-    else:
-        window = st.slider("Fenêtre (jours)", 3, 60, 14)
-        regions = st.multiselect("Régions", ["US","EU","FR","WORLD"], default=["US","EU"])
-        logger.debug("UI news.window=%s regions=%s", window, regions)
-        try:
-            items = load_news(window_days=window, regions=regions)
-            if not items:
-                st.write("Aucune news.")
+            if ask_model:
+                if st.button("Poser la question (marché/actions)"):
+                    try:
+                        with ui_event("ask_stock_question", question=q2[:100], ticker=ticker2):
+                            ans2 = ask_model(q2, context=ctx2)
+                            show_full("Réponse détaillée du modèle IA (actions)", ans2)
+                    except Exception as e:
+                        st.error(f"Le modèle IA a échoué : {e}")
+                        st.code(traceback.format_exc())
             else:
-                for it in items[:50]:
-                    title = f"{it.get('date','?')} — {it.get('title','(sans titre)')}"
-                    with st.expander(title):
-                        st.write(it.get("summary") or it.get("content") or "")
-                        meta = {k: it.get(k) for k in ("ticker","region","source","sentiment")}
-                        st.caption(str(meta))
-        except Exception as e:
-            st.error(f"load_news a échoué: {e}")
-            st.code(traceback.format_exc())
+                st.info("Le module IA (NLP_enrich) n'est pas disponible pour la partie actions.")
 
-with st.sidebar.expander("📜 Log (dernieres lignes)", expanded=False):
-    try:
-        # Utiliser le fichier log défini dans logging_setup.py
-        from pathlib import Path
-        LOG_DIR = Path(_SRC_ROOT).parent / "logs"
-        LOG_DIR.mkdir(parents=True, exist_ok=True)
-        LOG_FILE_PATH = LOG_DIR / "hub_app.log"
+        # ======================================================================================
+        # ONGLET 3 : Actualités (tout afficher, robuste aux objets non-dict)
+        # ======================================================================================
+        with tabs[2]:
+            with ui_event("render_tab", ui_page="news"):
+                st.subheader("🗞️ Actualités économiques et de marché — affichage intégral")
+                if not load_news:
+                    st.info("Module 'news' indisponible.")
+                else:
+                    window = st.slider("Fenêtre temporelle (en jours)", 3, 90, 14)
+                    regions = st.multiselect("Régions à inclure", ["US", "EU", "FR", "WORLD", "INTL", "GEO", "CA"], default=["US", "EU"])
+                    try:
+                        with ui_event("load_news_feed", window_days=window, regions=regions):
+                            items = load_news(window_days=window, regions=regions)
+                            if not items:
+                                st.warning("Aucune actualité trouvée.")
+                            else:
+                                st.success(f"{len(items)} éléments d'actualité chargés — tout est affiché ci-dessous.")
+                                # Affichage sans expander : une "carte" simple par item
+                                for idx, raw in enumerate(items, start=1):
+                                    it = to_mapping(raw)
+                                    # Normalisation minimale des champs clés
+                                    title = it.get("title") or it.get("headline") or "(sans titre)"
+                                    date  = it.get("date") or it.get("published_at") or it.get("time") or "?"
+                                    st.markdown(f"#### {idx}. {date} — {title}")
+                                    # corps / résumé
+                                    body = it.get("summary") or it.get("content") or it.get("body") or ""
+                                    if body:
+                                        st.write(body)
+                                    # méta principales
+                                    meta = {k: it.get(k) for k in ("ticker","tickers","region","source","sentiment","url") if k in it}
+                                    if meta:
+                                        st.caption(_json_s(meta, limit=500))
+                                    # tout le document normalisé (diagnostic)
+                                    with st.container(border=True):
+                                        st.caption("Objet complet (diagnostic)")
+                                        st.json(it)
+                    except Exception as e:
+                        st.error(f"Chargement des actualités impossible : {e}")
+                        st.code(traceback.format_exc())
 
-        txt = (LOG_FILE_PATH.read_text(encoding="utf-8") if LOG_FILE_PATH.exists() else "")
-        # on coupe pour éviter de rendre des Mo dans streamlit
-        lines = txt.splitlines()[-400:]
-        st.code("\n".join(lines))
-        st.caption(f"Fichier: {LOG_FILE_PATH}")
-    except Exception as e:
-        st.write(f"Impossible de lire le log: {e}")
+        # ======================================================================================
+        # SIDEBAR : LOGS récents + ENV
+        # ======================================================================================
+        with st.sidebar.expander("📜 Journal (dernières lignes)", expanded=False):
+            try:
+                LOG_DIR = (_SRC_ROOT.parent / "logs")
+                LOG_DIR.mkdir(parents=True, exist_ok=True)
+                LOG_FILE_PATH = LOG_DIR / "hub_app.log"
+                txt = (LOG_FILE_PATH.read_text(encoding="utf-8") if LOG_FILE_PATH.exists() else "")
+                lines = txt.splitlines()[-400:]
+                st.code("\n".join(lines))
+                st.caption(f"Fichier log : {LOG_FILE_PATH}")
+            except Exception as e:
+                st.write(f"Impossible de lire le log: {e}")
 
-st.caption("Hub d'analyse financière — Modules intégrés : Macro, Stock, NLP_enrich, Arbitre, Peers, News")
+        with st.sidebar.expander("🧩 Environnement (versions clés)", expanded=False):
+            try:
+                import importlib.metadata as _md
+                dists = _md.packages_distributions()
+                def _ver(pkg: str) -> str:
+                    try:
+                        return _md.version(pkg) if pkg in dists else "?"
+                    except Exception:
+                        return "?"
+                vers = {
+                    "python": platform.python_version(),
+                    "platform": platform.platform(),
+                    "streamlit": _ver("streamlit"),
+                    "pandas": _ver("pandas"),
+                    "numpy": _ver("numpy"),
+                    "yfinance": _ver("yfinance"),
+                    "requests": _ver("requests"),
+                }
+                st.code(_json_s(vers))
+            except Exception as e:
+                st.write(f"Impossible d'afficher l'environnement: {e}")
+
+        st.caption("Hub d'analyse financière — Modules intégrés : Macro, Actions, IA, Arbitre, Comparables, Actualités (affichage intégral, libellés développés).")
+
+if __name__ == "__main__":
+    main()

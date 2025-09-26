@@ -1,4 +1,4 @@
-# secrets_local.py 
+# secrets_local.py
 # Define local API keys here for development only.
 # This file is read by some modules directly (import src.secrets_local)
 # and will also set environment variables consumed by `src.core.config.Config`.
@@ -11,6 +11,11 @@
 # FIRECRAWL_API_KEY = "fc_xxx"
 
 import os
+from dotenv import load_dotenv
+from typing import Optional
+
+# Load environment variables from .env file BEFORE using them
+load_dotenv()
 
 # --- Local keys (edit these) ---
 FIRECRAWL_API_KEY = "fc-48a370c2f5874d4ab418adb2257d0cf5"
@@ -43,7 +48,7 @@ if YAHOO_API_KEY:
 	os.environ.setdefault("YAHOO_API_KEY", str(YAHOO_API_KEY))
 
 
-def get_key(name: str) -> str | None:
+def get_key(name: str) -> Optional[str]:
 	"""Return an API key by checking environment variables first,
 	then this module's attributes as a fallback.
 	"""

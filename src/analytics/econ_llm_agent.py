@@ -79,6 +79,7 @@ RETRIES_PER_MODEL = int(os.getenv("ECON_AGENT_RETRIES", "1"))
 SYSTEM_PROMPT_FR = """Tu es un analyste macro-financier senior. Ne révèle pas ton raisonnement interne.
 Règles :
 - Utilise UNIQUEMENT le contexte fourni ; si une donnée manque, écris exactement "non fourni".
+- Si un champ de features est manquant / None, ne pas le mentionner dans la réponse.
 - Pas de conseil personnalisé ; reste générique et actionnable.
 - ≤ 350 mots, sections strictes, puces numérotées (1., 2., 3.).
 Format :
@@ -216,6 +217,18 @@ def _build_context(ein: EconomicInput, char_budget: int) -> str:
 
 def _pick_system_prompt(locale: str) -> str:
     return SYSTEM_PROMPT_FR if (locale or "").lower().startswith("fr") else SYSTEM_PROMPT_EN
+
+
+def clean_llm_text(txt: str, max_chars: int = 3000) -> str:
+    """Clean LLM responses by removing repetitions and truncating."""
+    if not txt:
+        return ""
+    import re
+    # Remove gross repetitions (same field pattern repeated 3+ times)
+    txt = re.sub(r"(?:\b[\w_]+: ?[^\n]{5,}\n){3,}", lambda m: m.group(0).split("\n")[0]+"\n", txt)
+    # Reduce character repetition (aaaaa → aaa)
+    txt = re.sub(r"(.)\1{4,}", r"\1\1\1", txt)
+    return txt[:max_chars].rstrip()
 
 def _to_json_serializable(o):
     try:
@@ -388,6 +401,8 @@ class EconomicAnalyst:
                     timeout=self.timeout,
                 )
                 text = (resp.choices[0].message.content if hasattr(resp, "choices") else str(resp))
+                # Clean the LLM response to remove noise and limit length
+                text = clean_llm_text(text)
                 usage = getattr(resp, "usage", None)
                 parsed = _extract_tail_json_line(text)
                 return True, {

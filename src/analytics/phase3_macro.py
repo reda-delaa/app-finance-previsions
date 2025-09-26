@@ -114,7 +114,10 @@ class NowcastView:
     components: Dict[str, float]
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"scores": dict(self.scores), "components": dict(self.components)}
+        # Round scores and components to 4 decimal places for readability
+        scores = {k: round(float(v), 4) if v is not None and np.isfinite(v) else v for k, v in self.scores.items()}
+        components = {k: round(float(v), 4) if v is not None and np.isfinite(v) else v for k, v in self.components.items()}
+        return {"scores": scores, "components": components}
 
 
 @dataclass
@@ -272,6 +275,32 @@ def pct_chg(df: pd.DataFrame, periods: int = 1) -> pd.DataFrame:
 def yoy(df: pd.DataFrame) -> pd.DataFrame:
     """Croissance annuelle (YoY) pour données mensuelles/quarterly."""
     return df.pct_change(12, fill_method=None)
+
+
+def _safe_pct_yoy(series):
+    """Safe percentage change calculation with proper error handling."""
+    if series is None or series.empty:
+        return None
+    try:
+        v = series.pct_change(12).iloc[-1]
+        return None if (v is None or not np.isfinite(v)) else float(v)
+    except Exception:
+        return None
+
+
+def _safe_delta(series):
+    """Safe delta calculation with proper error handling."""
+    if series is None or series.empty:
+        return None
+    try:
+        # Calculate deviation from rolling mean
+        rolling_mean = series.rolling(24, min_periods=12).mean()
+        if rolling_mean.empty or rolling_mean.iloc[-1] is None:
+            return None
+        v = series.iloc[-1] - rolling_mean.iloc[-1]
+        return None if not np.isfinite(v) else float(v)
+    except Exception:
+        return None
 
 
 def zscore_df(df: pd.DataFrame, winsor: float = 3.0) -> pd.DataFrame:

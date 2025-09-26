@@ -1,4 +1,8 @@
 from __future__ import annotations
+# AJOUT
+from core_runtime import configure_logging, new_trace_id, set_trace_id, get_trace_id
+configure_logging()  # force notre handler JSON sur le root
+
 import os, sys, logging, warnings, atexit
 from logging import Handler, LogRecord
 from loguru import logger as _loguru
@@ -133,6 +137,10 @@ def get_logger(name: str = "hub"):
             self.log("ERROR", message, *args, **kwargs)
 
     return BoundLogger(name)
+
+def ensure_trace():
+    if get_trace_id() is None:
+        new_trace_id()
 
 # Backward compatibility - wrapper for old configure_logging function
 def configure_logging(level=logging.INFO, logfile="logs/hub_app.log"):
