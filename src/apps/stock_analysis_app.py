@@ -11,7 +11,7 @@ import yfinance as yf
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-from utils.st_compat import get_st
+from utils import get_st
 st = get_st()
 import ta
 

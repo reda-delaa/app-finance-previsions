@@ -27,8 +27,7 @@ import pandas as pd
 import requests
 import yfinance as yf
 import plotly.graph_objects as go
-from utils.st_compat import get_st
-from utils.warn_log import warn_once
+from utils import get_st, warn_once
 import sqlite3
 
 from core_runtime import (SESSION, df_fingerprint, write_entry, with_span,
@@ -840,9 +839,11 @@ def render_macro():
                 if not top.empty:
                     st.markdown("**À surveiller (importance moyenne/élevée, heures de New York)**")
                     for _, r in top.iterrows():
-                        badge = "🔴" if r["Importance"]=="High" else "🟠"
-                        st.write(f"{badge} {r['ts_ny']:%a %H:%M} — {r['Event']} "
-                                 f"(Actuel : {r['Actual']}, Consensus : {r['Forecast']}, Précédent : {r['Previous']})")
+                        imp_badge = "🔴" if r["Importance"] == "High" else "🟠"
+                        st.write(
+                            f"{imp_badge} {r['ts_ny']:%a %H:%M} — {r['Event']} "
+                            f"(Actuel : {r['Actual']}, Consensus : {r['Forecast']}, Précédent : {r['Previous']})"
+                        )
             except Exception as e:
                 log_warn(f"Top events cal échoué: {e}")
 

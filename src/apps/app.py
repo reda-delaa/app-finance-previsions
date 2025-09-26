@@ -50,29 +50,13 @@ st.title("📈 Analyse Financière — Hub IA")
 
 # ---------- API KEY CHECK ----------
 try:
-    from utils.config import get_cfg  # project-level if present
+    from utils import get_cfg  # unified utils shim
     cfg = get_cfg()
     if not cfg.has_any_fin_api():
         st.info("⚠️ Clé API financière absente : certaines fonctions (peers avancés, news enrichies) basculent en mode dégradé. Renseignez vos clés dans **Réglages de l'analyse**.")
 except Exception as e:
     st.warning(f"Vérification des clés API impossible : {e}")
     log.warning(f"API key check failed: {e}")
-    # Fallback configuration when import fails
-    def get_cfg():
-        # fallback: lit les variables d'env, sinon None
-        import os
-        return type('Config', (), {
-            'has_any_fin_api': lambda: any([
-                os.getenv("FRED_API_KEY"),
-                os.getenv("FINNHUB_API_KEY"),
-                os.getenv("TE_USER"),
-                os.getenv("TE_KEY")
-            ])
-        })()
-    cfg = get_cfg()
-else:
-    # No exception occurred, check if API keys are configured
-    pass  # cfg is already set from the successful import
 
 # ---------- SESSION TRACE ----------
 def _ensure_session_trace():
