@@ -18,6 +18,8 @@ if str(_SRC_ROOT) not in _sys.path:
 
 # ---------- LOGGING GLOBAL (JSON avec tracing) ----------
 from core_runtime import log, get_trace_id, set_trace_id, new_trace_id, ui_event
+# Compat pour tests qui patchent `src.apps.app.logger`
+logger = log
 
 # Capturer les warnings dans le log
 import warnings
@@ -96,35 +98,47 @@ def log_debug(msg: str):
     log.debug(msg)
 
 # ---------- IMPORT ROBUSTE + TRACE ----------
-def trace_call(name: str, fn):
-    """Wrappe une fonction pour loguer entrée/sortie/durée/erreur."""
-    if fn is None or not callable(fn):
-        return fn
+def trace_call(name: str, fn=None):
+    """Decorator (or wrapper) to log enter/exit/duration/errors.
 
-    def _wrapped(*args, **kwargs):
-        t0 = time.perf_counter()
-        log.debug(f"→ {name} args={_json_s(args)} kwargs={_json_s(kwargs)}")
-        import warnings as _warnings
-        try:
-            with _warnings.catch_warnings(record=True) as _caught:
-                _warnings.simplefilter("always")
-                out = fn(*args, **kwargs)
-            # refléter tout warning émis pendant l'appel dans le logger
-            for w in _caught:
-                try:
-                    log.warning(str(w.message))
-                except Exception:
-                    pass
-            dt = (time.perf_counter() - t0) * 1000
-            # éviter d’inonder les logs avec des mégastructures
-            log.debug(f"← {name} ({dt:.1f} ms) result={type(out).__name__}")
-            return out
-        except Exception as e:
-            dt = (time.perf_counter() - t0) * 1000
-            log.error(f"✖ {name} FAILED ({dt:.1f} ms): {e}")
-            log_exc(name, e)
-            raise
-    return _wrapped
+    Usage:
+      @trace_call("func_name")
+      def f(...): ...
+
+      # or wrap dynamically
+      f_wrapped = trace_call("func_name", f)
+    """
+
+    def _decorator(f):
+        if f is None or not callable(f):
+            return f
+
+        def _wrapped(*args, **kwargs):
+            t0 = time.perf_counter()
+            logger.debug(f"→ {name} args={_json_s(args)} kwargs={_json_s(kwargs)}")
+            import warnings as _warnings
+            try:
+                with _warnings.catch_warnings(record=True) as _caught:
+                    _warnings.simplefilter("always")
+                    out = f(*args, **kwargs)
+                for w in _caught:
+                    try:
+                        logger.warning(str(w.message))
+                    except Exception:
+                        pass
+                dt = (time.perf_counter() - t0) * 1000
+                logger.debug(f"← {name} ({dt:.1f} ms) result={type(out).__name__}")
+                return out
+            except Exception as e:
+                dt = (time.perf_counter() - t0) * 1000
+                logger.error(f"✖ {name} FAILED ({dt:.1f} ms): {e}")
+                log_exc(name, e)
+                raise
+
+        return _wrapped
+
+    # Support both decorator factory and direct wrapper usage
+    return _decorator if fn is None else _decorator(fn)
 
 def safe_import(path: str, attr: Optional[str] = None):
     """

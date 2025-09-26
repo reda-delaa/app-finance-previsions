@@ -46,7 +46,7 @@ def get_st():
         "set_page_config", "title", "sidebar", "write", "warning",
         "error", "info", "success", "caption", "code", "json", "text_input",
         "text_area", "slider", "button", "checkbox", "subheader", "header", "tabs", "expander",
-        "plotly_chart"
+        "plotly_chart", "markdown"
     ]:
         setattr(d, name, _noop)
 
@@ -61,6 +61,8 @@ def get_st():
 
     # composants qui renvoient un "context manager"
     d.expander = lambda *a, **k: _DummyCtx()
+    d.spinner = lambda *a, **k: _DummyCtx()
+    d.container = lambda *a, **k: _DummyCtx()
     d.tabs     = lambda labels: [ _DummyCtx() for _ in labels ]
     def _columns(spec, **k):
         try:
@@ -76,14 +78,31 @@ def get_st():
     d.selectbox = lambda label, options, index=0, format_func=lambda x: x, **k: (options[index] if options else None)
 
     # cache_data decorator (no-op)
-    def _cache_data(**kwargs):
-        def _deco(fn):
-            return fn
-        return _deco
-    d.cache_data = _cache_data
+    class _CacheData:
+        def __call__(self, **kwargs):
+            def _deco(fn):
+                return fn
+            return _deco
+        def clear(self):
+            pass
+    d.cache_data = _CacheData()
+
+    # misc widgets/utilities
+    import datetime as _dt
+    d.date_input = lambda label, value=None, **k: (value or _dt.datetime(2000,1,1))
+    d.number_input = lambda label, value=0.0, **k: value
+    d.dataframe = _noop
+    d.metric = _noop
+    d.rerun = lambda: None
+    d.stop = lambda: None
+    d._is_dummy = True
 
     return d
 
 class _DummyCtx:
     def __enter__(self): return self
     def __exit__(self, *exc): return False
+    def __getattr__(self, name):
+        def _noop(*a, **k):
+            return None
+        return _noop

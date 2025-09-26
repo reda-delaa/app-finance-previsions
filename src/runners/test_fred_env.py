@@ -1,46 +1,27 @@
 #!/usr/bin/env python3
-"""
-Quick test for FRED API key availability
-"""
+"""FRED API key availability — usable as PyTest and as a script."""
 
 import os
 import sys
-sys.path.append(os.path.dirname(__file__))
+import pytest
 
-try:
-    from secrets_local import get_key
-    print("✅ secrets_local imported successfully")
 
-    # Test direct environment variable
+def _get_key(name: str):
+    try:
+        from secrets_local import get_key as _gk  # type: ignore
+        return _gk(name)
+    except Exception:
+        return os.getenv(name)
+
+
+@pytest.mark.integration
+def test_fred_api_key_available():
     env_key = os.getenv("FRED_API_KEY")
-    print(f"Environment variable FRED_API_KEY: {'✅ Found' if env_key else '❌ Missing'}")
-    if env_key:
-        print(f"Key length: {len(env_key)} (32 chars expected for FRED)")
+    secret_key = _get_key("FRED_API_KEY")
+    assert env_key or secret_key, "FRED_API_KEY is not available"
 
-    # Test via get_key function
-    secret_key = get_key("FRED_API_KEY")
-    print(f"secrets_local.get_key('FRED_API_KEY'): {'✅ Found' if secret_key else '❌ Missing'}")
-    if secret_key:
-        print(f"Key length: {len(secret_key)} (32 chars expected for FRED)")
 
-    # Check if both match
-    if env_key and secret_key:
-        if env_key == secret_key:
-            print("✅ Environment variable and secrets_local match")
-        else:
-            print("⚠️ Environment variable and secrets_local differ")
-
-    if secret_key or env_key:
-        print("✅ FRED API key is available to the project")
-        sys.exit(0)
-    else:
-        print("❌ FRED API key is not available")
-        sys.exit(1)
-
-except ImportError as e:
-    print(f"❌ Failed to import secrets_local: {e}")
-    sys.exit(1)
-
-except Exception as e:
-    print(f"❌ Unexpected error: {e}")
-    sys.exit(1)
+if __name__ == "__main__":
+    key = _get_key("FRED_API_KEY")
+    print("✅ FRED_API_KEY available" if key else "❌ FRED_API_KEY missing")
+    sys.exit(0 if key else 1)

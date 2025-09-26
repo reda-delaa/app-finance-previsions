@@ -4,13 +4,15 @@ import importlib
 
 from unittest.mock import patch, MagicMock
 
-import importlib.util
+import sys
 from pathlib import Path
 
-# import module directly to avoid package-level side-effects (config requiring env vars)
-spec = importlib.util.spec_from_file_location("market_data", str(Path(__file__).resolve().parents[1] / "src" / "core" / "market_data.py"))
-market_data = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(market_data)
+# Ensure project src is on path, then import module normally
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SRC = PROJECT_ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+from core import market_data  # type: ignore
 
 
 class DummyDF:

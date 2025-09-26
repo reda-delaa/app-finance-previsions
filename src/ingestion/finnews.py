@@ -318,10 +318,62 @@ def list_sources(regions: List[str]) -> List[str]:
             final.extend(SOURCES[r])
     return sorted(set(final))
 
-def fetch_feed(url: str, per_source_cap: Optional[int] = None) -> List[Dict[str, Any]]:
-    d = feedparser.parse(url)
+def fetch_feed(url: str, per_source_cap: Optional[int] = None, timeout: int = 30) -> List[Dict[str, Any]]:
+    """Enhanced RSS feed fetching with robust error handling and headers."""
+    import requests
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (NewsFetcher/1.0)",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "keep-alive",
+    }
+
+    try:
+        # First try direct feedparser parsing
+        d = feedparser.parse(url, agent=headers.get("User-Agent"))
+        if d and hasattr(d, 'entries') and len(d.entries) > 0:
+            return _parse_feed_entries(d, per_source_cap)
+    except Exception as e:
+        pass
+
+    # Fallback: use requests first to handle encoding issues
+    try:
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=timeout,
+            allow_redirects=True
+        )
+        response.raise_for_status()
+
+        # Try to detect encoding from content
+        if response.apparent_encoding:
+            content = response.content.decode(response.apparent_encoding, errors='ignore')
+        else:
+            content = response.text
+
+        # Re-parse with feedparser
+        d = feedparser.parse(content)
+        if d and hasattr(d, 'entries') and len(d.entries) > 0:
+            return _parse_feed_entries(d, per_source_cap)
+        else:
+            raise ValueError("No entries found after re-parsing")
+
+    except requests.RequestException as e:
+        pass  # Fall through to return empty
+    except Exception as e:
+        pass
+
+    # Return empty if all attempts fail
+    return []
+
+def _parse_feed_entries(d, per_source_cap: Optional[int]) -> List[Dict[str, Any]]:
+    """Parse feed entries into standardized format."""
     items = []
-    for e in d.entries[: (per_source_cap or len(d.entries))]:
+    cap = per_source_cap or len(d.entries)
+    for e in d.entries[:cap]:
         title = (e.get("title") or "").strip()
         link = (e.get("link") or "").strip()
         if not title or not link:
@@ -342,58 +394,6 @@ def fetch_feed(url: str, per_source_cap: Optional[int] = None) -> List[Dict[str,
         items.append(dict(
             title=title, link=link, published=pub_iso, summary=summary, raw_text=content
         ))
-    return items
-
-def dedup_items(items: List[Dict[str, Any]], source: str) -> List[Dict[str, Any]]:
-    seen = set()
-    out = []
-    for it in items:
-        h = sha256(f"{source}|{it['title']}|{it['published']}")
-        if h in seen:
-            continue
-        seen.add(h)
-        it["_id"] = h
-        out.append(it)
-    return out
-
-
-# =================
-# Enrichment layer
-# =================
-
-def _translate(text: str, target_lang: str = "en") -> str:
-    if not text: return text
-    if nlp_enrich and hasattr(nlp_enrich, "translate"):
-        try:
-            return nlp_enrich.translate(text, target_lang=target_lang) or text
-        except Exception:
-            return text
-    # Noop fallback
-    return text
-
-def _summarize(text: str, max_sent: int = 3) -> str:
-    if not text: return ""
-    if nlp_enrich and hasattr(nlp_enrich, "summarize"):
-        try:
-            return nlp_enrich.summarize(text, max_sent=max_sent) or text[:600]
-        except Exception:
-            pass
-    # simple fallback: first N sentences
-    sents = re.split(r"(?<=[.!?])\s+", text.strip())
-    return " ".join(sents[:max_sent])[:800]
-
-def _sentiment(text: str) -> float:
-    if not text: return 0.0
-    if nlp_enrich and hasattr(nlp_enrich, "sentiment"):
-        try:
-            return float(nlp_enrich.sentiment(text))
-        except Exception:
-            pass
-    if _VADER:
-        s = _VADER.polarity_scores(text)
-        return float(s.get("compound", 0.0))
-    # naive fallback
-    pos = len(re.findall(r"\b(up|beat|record|growth|profit|surge)\b", text, re.I))
     neg = len(re.findall(r"\b(down|loss|drop|probe|sanction|war|strike|glut)\b", text, re.I))
     return (pos - neg) / (pos + neg + 1)
 
