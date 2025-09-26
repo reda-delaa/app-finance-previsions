@@ -3,7 +3,7 @@ GSCPI (Global Supply Chain Pressure Index) data source with multiple mirror URLs
 Robust fetching with fallback mechanisms.
 """
 import pandas as pd
-from ..warn_log import warn_once
+from utils import warn_once
 
 # Mirror URLs for GSCPI data
 URLS = [

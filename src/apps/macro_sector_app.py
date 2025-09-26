@@ -28,10 +28,8 @@ import requests
 import yfinance as yf
 import plotly.graph_objects as go
 from utils import get_st, warn_once
-import sqlite3
-
 from core_runtime import (SESSION, df_fingerprint, write_entry, with_span,
-                          log, DB, get_trace_id, new_trace_id, set_trace_id)
+                          log, get_trace_id, new_trace_id, set_trace_id, get_dataset_log_latest)
 
 st = get_st()
 
@@ -310,13 +308,7 @@ def call_safely(_fn, *args, label: str = None, **kwargs):
         return None
 
 def render_sources_state():
-    with sqlite3.connect(DB) as cx:
-        df = pd.read_sql_query("""
-            SELECT dataset, status, rows, min_date, max_date, datetime(ts,'unixepoch') as ts, trace_id
-            FROM dataset_log
-            WHERE ts = (SELECT MAX(ts) FROM dataset_log d2 WHERE d2.dataset = dataset_log.dataset)
-            ORDER BY dataset
-        """, cx)
+    df = get_dataset_log_latest()
     st.subheader("État des sources (dernière collecte)")
     st.dataframe(df, width='stretch')
 

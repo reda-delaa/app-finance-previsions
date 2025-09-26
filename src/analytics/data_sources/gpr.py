@@ -3,7 +3,7 @@ GPR (Geopolitical Risk Index) data source with multiple mirror URLs.
 Robust fetching with network tolerance and fallbacks.
 """
 import io
-from ..warn_log import warn_once
+from utils import warn_once
 
 # Mirror URLs for GPR data
 URLS = [

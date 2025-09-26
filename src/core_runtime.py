@@ -1,5 +1,5 @@
 # src/core_runtime.py
-import json, sys, time, uuid, sqlite3, hashlib, logging, contextvars
+import json, sys, time, uuid, hashlib, logging, contextvars
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -144,64 +144,18 @@ def make_session():
 
 SESSION = make_session()
 
-# -------- Fingerprint + provenance (SQLite) --------
-# Le chemin de la base peut être surchargé par les variables d'env:
-# - AF_DB_PATH: chemin fichier complet
-# - AF_DB_DIR:  dossier contenant la base (fichier: af_provenance.sqlite)
-# Par défaut on tente ~/.af_provenance.sqlite. Si non accessible (ex: sandbox),
-# on bascule automatiquement vers <repo_root>/logs/af_provenance.sqlite.
-def _compute_default_db_path() -> Path:
-    # 1) Env overrides
-    import os
-    af_db_path = os.getenv("AF_DB_PATH")
-    if af_db_path:
-        return Path(af_db_path)
-    af_db_dir = os.getenv("AF_DB_DIR")
-    if af_db_dir:
-        return Path(af_db_dir) / "af_provenance.sqlite"
-
-    # 2) Home by default
-    return Path.home() / ".af_provenance.sqlite"
-
+# -------- Fingerprint + provenance (JSONL) --------
 def _project_logs_path() -> Path:
     # src/core_runtime.py -> repo_root = parents[1]
     repo_root = Path(__file__).resolve().parents[1]
     # dossier logs dans le repo courant
     logs = (repo_root / "logs").resolve()
     logs.mkdir(parents=True, exist_ok=True)
-    return logs / "af_provenance.sqlite"
+    return logs
 
-DB = _compute_default_db_path()
-
-def _init_db():
-    global DB
-    target_paths = [DB]
-    # En cas d'échec sur HOME, on tente le fallback projet
-    fallback = _project_logs_path()
-    if fallback not in target_paths:
-        target_paths.append(fallback)
-
-    last_err = None
-    for path in target_paths:
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with sqlite3.connect(path) as cx:
-                cx.execute(
-                    """CREATE TABLE IF NOT EXISTS dataset_log(
-                        ts INTEGER, dataset TEXT, source_url TEXT, status TEXT,
-                        rows INTEGER, min_date TEXT, max_date TEXT, checksum TEXT,
-                        schema_version TEXT, trace_id TEXT
-                    )"""
-                )
-            DB = path  # Utiliser ce chemin validé
-            return
-        except Exception as e:
-            last_err = e
-            continue
-    # Si tout échoue, on remonte l'erreur originale
-    raise RuntimeError(f"Impossible d'initialiser la base de provenance: {last_err}")
-
-_init_db = _init_db()  # init au chargement
+# Chemin du journal JSONL des datasets
+_LOGS_DIR = _project_logs_path()
+DATASET_LOG = _LOGS_DIR / "dataset_log.jsonl"
 
 def df_fingerprint(df: pd.DataFrame):
     rows, cols = df.shape
@@ -224,10 +178,67 @@ def df_fingerprint(df: pd.DataFrame):
     }
 
 def write_entry(dataset:str, source_url:str, status:str, meta:dict, schema_version:str):
-    with sqlite3.connect(DB) as cx:
-        cx.execute("""INSERT INTO dataset_log
-            (ts,dataset,source_url,status,rows,min_date,max_date,checksum,schema_version,trace_id)
-            VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (int(time.time()), dataset, source_url, status,
-             meta.get("rows",0), meta.get("min_date"), meta.get("max_date"),
-             meta.get("checksum"), schema_version, get_trace_id()))
+    """Append a provenance entry to a JSONL log instead of SQLite."""
+    DATASET_LOG.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "ts": int(time.time()),
+        "dataset": dataset,
+        "source_url": source_url,
+        "status": status,
+        "rows": int(meta.get("rows", 0) or 0),
+        "min_date": meta.get("min_date"),
+        "max_date": meta.get("max_date"),
+        "checksum": meta.get("checksum"),
+        "schema_version": schema_version,
+        "trace_id": get_trace_id(),
+    }
+    try:
+        with DATASET_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        logging.getLogger("af").exception("write_entry failed", extra={"where": "write_entry"})
+
+
+def get_dataset_log_latest() -> pd.DataFrame:
+    """Return the latest entry per dataset from the JSONL log as a DataFrame."""
+    cols = ["dataset","status","rows","min_date","max_date","ts","trace_id"]
+    if not DATASET_LOG.exists():
+        return pd.DataFrame(columns=cols)
+    records = []
+    try:
+        with DATASET_LOG.open("r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                r = {
+                    "dataset": rec.get("dataset"),
+                    "status": rec.get("status"),
+                    "rows": rec.get("rows"),
+                    "min_date": rec.get("min_date"),
+                    "max_date": rec.get("max_date"),
+                    "ts": rec.get("ts"),
+                    "trace_id": rec.get("trace_id"),
+                }
+                if r["dataset"]:
+                    records.append(r)
+    except Exception:
+        logging.getLogger("af").exception("read dataset_log.jsonl failed")
+        return pd.DataFrame(columns=cols)
+
+    if not records:
+        return pd.DataFrame(columns=cols)
+
+    df = pd.DataFrame.from_records(records)
+    # Keep latest per dataset
+    df = df.sort_values("ts").groupby("dataset", as_index=False).tail(1)
+    # Convert ts to datetime
+    try:
+        df["ts"] = pd.to_datetime(df["ts"], unit="s")
+    except Exception:
+        pass
+    return df[cols]

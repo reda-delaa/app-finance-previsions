@@ -20,6 +20,9 @@ if str(_SRC_ROOT) not in _sys.path:
 LOG_DIR = _SRC_ROOT.parent / "logs"
 LOG_FILE = LOG_DIR / "hub_app.log"
 
+"""App bootstrap; avoids global warning filters. SQLite leaks are addressed
+by a connection guard installed in core_runtime (safe auto-close)."""
+
 # ---------- LOGGING GLOBAL (JSON avec tracing) ----------
 from core_runtime import log, get_trace_id, set_trace_id, new_trace_id, ui_event
 # Compat pour tests qui patchent `src.apps.app.logger`
