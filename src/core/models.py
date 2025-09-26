@@ -4,7 +4,7 @@ Core financial data structures and models.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 import pandas as pd
 
@@ -137,3 +137,55 @@ class FinancialAnalysis:
         analysis.scores = data.get('scores', {})
         analysis.insights = data.get('insights', [])
         return analysis
+
+
+# ======================= Unified Features Bundle ========================
+@dataclass
+class FeatureBundle:
+    """Unified features passed to IA/Arbitre.
+
+    - macro: output of phase3_macro.get_macro_features() (dict-like)
+    - technical: indicators/metrics for a ticker (dict-like)
+    - fundamentals: basic financials/ratios (dict-like)
+    - news: aggregated news signals (e.g., from analytics.market_intel.build_unified_features)
+    - meta: optional context
+    """
+    macro: Optional[Dict[str, Any]] = None
+    technical: Optional[Dict[str, Any]] = None
+    fundamentals: Optional[Dict[str, Any]] = None
+    news: Optional[Dict[str, Any]] = None
+    meta: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        out: Dict[str, Any] = {}
+        if self.macro is not None:
+            out["macro"] = self._as_plain(self.macro)
+        if self.technical is not None:
+            out["technical"] = self._as_plain(self.technical)
+        if self.fundamentals is not None:
+            out["fundamentals"] = self._as_plain(self.fundamentals)
+        if self.news is not None:
+            out["news"] = self._as_plain(self.news)
+        if self.meta is not None:
+            out["meta"] = self._as_plain(self.meta)
+        return out
+
+    @staticmethod
+    def _as_plain(obj: Any) -> Any:
+        """Convert common containers to plain JSON-serializable structures."""
+        try:
+            if obj is None:
+                return None
+            if isinstance(obj, (str, int, float, bool)):
+                return obj
+            if isinstance(obj, dict):
+                return {k: FeatureBundle._as_plain(v) for k, v in obj.items()}
+            if isinstance(obj, (list, tuple)):
+                return [FeatureBundle._as_plain(v) for v in obj]
+            if hasattr(obj, "to_dict") and callable(getattr(obj, "to_dict")):
+                return FeatureBundle._as_plain(obj.to_dict())
+            if hasattr(obj, "__dict__"):
+                return FeatureBundle._as_plain(vars(obj))
+        except Exception:
+            pass
+        return obj

@@ -352,6 +352,11 @@ if err: log_debug(f"Failed to import analytics.market_intel.build_unified_featur
 collect_news = trace_call("collect_news", _collect_news)
 build_unified_news = trace_call("build_unified_features", _build_unified_news)
 
+# Optional FeatureBundle dataclass
+_FeatureBundle, err = safe_import("core.models", "FeatureBundle")
+if err:
+    _FeatureBundle = None
+
 def _news_features_for(ticker: str = None, regions=None, window: str = "last_week", query: str = "") -> dict:
     regions = regions or ["US", "INTL", "GEO"]
     try:
@@ -365,6 +370,19 @@ def _news_features_for(ticker: str = None, regions=None, window: str = "last_wee
         return {}
 
 def _compose_features(macro_feats=None, tech_feats=None, fund=None, news_feats=None) -> dict:
+    if _FeatureBundle:
+        try:
+            fb = _FeatureBundle(
+                macro=(macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()) if macro_feats else None,
+                technical=(tech_feats if not hasattr(tech_feats, "to_dict") else tech_feats.to_dict()) if tech_feats else None,
+                fundamentals=fund if fund else None,
+                news=news_feats if news_feats else None,
+                meta=None,
+            )
+            return fb.to_dict()
+        except Exception:
+            pass
+    # Fallback plain dict if FeatureBundle unavailable
     out = {}
     if macro_feats:
         out["macro"] = macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
