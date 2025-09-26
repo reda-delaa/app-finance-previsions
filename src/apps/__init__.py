@@ -9,3 +9,8 @@ try:
 except Exception:
     # optional in bare environments
     pass
+
+try:
+    from .stock_analysis_app import get_stock_data, add_technical_indicators  # noqa: F401
+except Exception:
+    pass

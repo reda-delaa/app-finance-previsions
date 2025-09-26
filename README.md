@@ -1,23 +1,44 @@
-# Analyse Financière
+# Analyse Financière — Hub IA (Macro · Actions · News)
 
-Suite d'outils d'analyse financière combinant analyse fondamentale, technique, macroéconomique et sentiment.
+Suite pro d'outils d’analyse financière combinant signaux macro (FRED), technique (yfinance), fondamentaux, et news agrégées — puis synthétisés par un arbitre/IA pour orienter la décision (rotation sectorielle, couverture FX/taux, focus titres).
 
-## Structure du Projet
+TL;DR (3 commandes utiles)
+- App principale (Hub IA):
+  - `PYTHONPATH=src streamlit run src/apps/app.py`
+- Tests d’intégration réseau (FRED/yfinance) avec venv:
+  - `make it-integration-venv`
+- News snapshot (CLI):
+  - `python -m src.analytics.market_intel run --regions US,INTL --window last_week --ticker AAPL --stdout`
+
+## Architecture (vue d’ensemble)
 
 ```
-analyse-financiere/
-├─ src/                    # Code principal
-│  ├─ core/                # Briques génériques réutilisables
-│  ├─ ingestion/          # Collecte de données
-│  ├─ taxonomy/           # Classifications et lexiques
-│  ├─ analytics/          # Logique d'analyse
-│  ├─ apps/              # Applications Streamlit
-│  ├─ research/          # Scripts exploratoires
-│  └─ runners/           # Exécuteurs batch
-└─ [autres dossiers...]
+[Sources]
+  FRED  yfinance  RSS/News  Finviz?  MacroDerivs?  ➜  Ingestion & Normalisation
+   |       |         |         |         |
+   |       |         |         |         └─ (optionnels, best-effort)
+   |       |         |         └─ finviz_client (company/options/futures)
+   |       |         └─ finnews (run_pipeline) → news normalisées
+   |       └─ get_stock_data / OHLCV
+   └─ fetch_fred_series (API JSON + fallback CSV)
+
+[Analytics]
+  - phase3_macro: nowcast macro (z-scores + composants + fraîcheur séries)
+  - phase2_technical: indicateurs techniques (SMA/RSI/MACD/BB, etc.)
+  - market_intel: agrégation news → features (sentiment, événements, secteurs)
+
+[Features Bundle]
+  macro + technical + fundamentals + news  →  ctx['features'] pour IA/Arbitre
+
+[Décision]
+  - econ_llm_agent (arbitre) → synthèse / orientation
+  - nlp_enrich (IA) → explications et pistes d’actions
+
+[UI Streamlit]
+  apps/app.py (Hub): Macro synthèse + Actions + News + IA/Arbitre + Diagnostics
 ```
 
-## Installation
+## Installation — du plus important
 
 1. Cloner le repository
 ```bash
@@ -27,8 +48,8 @@ cd analyse-financiere
 
 2. Créer et activer un environnement virtuel
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
 # ou
 .\venv\Scripts\activate  # Windows
 ```
@@ -43,6 +64,12 @@ pip install -r requirements.txt
 cp .env.example .env
 # Éditer .env avec vos clés API
 ```
+
+## Comment l’App aide la prévision (3–6 mois)
+
+- Le bloc “Synthèse macro” expose des z‑scores robustes (Croissance/Inflation/Politique/USD/Commodities) + composants (YoY, slope), lisibles et datés.
+- Les news sont agrégées (sentiment/événements) et fusionnées avec les signaux macro → `features` unifié passé à l’IA et à l’arbitre.
+- L’IA vulgarise le contexte, l’arbitre propose une orientation (rotation sectorielle/couverture FX/taux) avec un rationnel synthétique.
 
 ## Scénarios d'Utilisation Principaux
 
@@ -71,7 +98,29 @@ streamlit run src/apps/stock_analysis_app.py
 ## Tests
 
 ```bash
-python -m pytest tests/
+pytest -q
+```
+
+## Flux d’intégration (détaillé)
+
+```
+1) Macro
+   phase3_macro.get_macro_features()
+     ├─ FRED JSON (clé) → observations; fallback CSV (fredgraph) si besoin
+     ├─ z-scores (GRW, INF, POL, USD, CMD)
+     └─ composants + fraîcheur séries (AAAA‑MM)
+
+2) News
+   finnews.run_pipeline(...) → items normalisés
+   market_intel.collect_news + build_unified_features → features agrégées
+
+3) Actions
+   get_stock_data + phase2_technical → indicateurs
+   fondamentaux (yfinance) → ratios de base
+
+4) Décision
+   ctx['features'] = {macro, news, [technical, fundamentals]}
+   econ_llm_agent.analyze(ctx)  → orientation & drivers
 ```
 
 ## Structure des Données
@@ -98,3 +147,20 @@ python -m pytest tests/
 - Cache dans `cache/`
 - Artifacts datés dans `artifacts/`
 - Tests unitaires dans `tests/`
+
+## Roadmap (intégration continue)
+
+- Formaliser un FeatureBundle (dataclass) {macro, technical, fundamentals, news} avec as_dict/from_*.
+- Ajouter poids/horizon paramétrables pour l’arbitre (config.yaml).
+- Étendre la couverture tests d’intégration (ajout d’autres sources réseau marquées @integration).
+- Ajouter un petit bandeau “état des sources” (🟢/🟠/🔴) en haut de l’app.
+
+## Sécurité & Secrets
+
+- Ne commitez jamais vos clés: `.gitignore` ignore `.env`, `src/secrets_local.py`, `*.key`, `*.pem`, etc.
+- Pour purger l’index si déjà commis: `git rm --cached src/secrets_local.py && git commit -m "remove secrets_local"`.
+### 4. Hub (macro + actions + news + IA)
+
+```bash
+PYTHONPATH=src streamlit run src/apps/app.py
+```

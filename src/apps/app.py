@@ -237,6 +237,72 @@ def show_full(name: str, data):
         except Exception:
             st.write(data)
 
+# ---------- UI HELPERS (pro look) ----------
+def _score_badge(v: float) -> str:
+    try:
+        if v is None or (isinstance(v, float) and not (v == v)):
+            return "N/A"
+        if v >= 1.0:
+            return f"🟢 {v:+.2f}"
+        if v <= -1.0:
+            return f"🔴 {v:+.2f}"
+        return f"🟠 {v:+.2f}"
+    except Exception:
+        return str(v)
+
+def _component_fmt(v) -> str:
+    try:
+        if v is None or (isinstance(v, float) and not (v == v)):
+            return "n/a"
+        return f"{float(v):+.3f}"
+    except Exception:
+        return "n/a"
+
+def render_macro_summary_block(macro_feats: dict):
+    st.markdown("### 🔮 Synthèse macro (scores normalisés)")
+    scores = (macro_feats or {}).get("macro_nowcast", {}).get("scores", {})
+    cols = st.columns(5)
+    keys = [
+        ("Growth", "Croissance"),
+        ("Inflation", "Inflation"),
+        ("Policy", "Politique monétaire"),
+        ("USD", "Dollar US"),
+        ("Commodities", "Matières premières"),
+    ]
+    for i, (k, label) in enumerate(keys):
+        cols[i].metric(label, _score_badge(scores.get(k)))
+
+    st.info(
+        "Ces scores macro sont des z-scores (moyenne 0, écart-type 1) calculés sur des séries FRED."
+        " Utilisez-les pour qualifier le régime économique courant et nourrir vos scénarios 3–6 mois"
+        " (rotation sectorielle, couverture de change, duration obligataire)."
+    )
+
+    comps = (macro_feats or {}).get("macro_nowcast", {}).get("components", {})
+    with st.expander("Détails composants (dernière valeur non-nulle)"):
+        c1, c2, c3 = st.columns(3)
+        c1.write(f"INDPRO YoY: {_component_fmt(comps.get('INDPRO_YoY'))}")
+        c1.write(f"PAYEMS YoY: {_component_fmt(comps.get('PAYEMS_YoY'))}")
+        c1.write(f"YieldSlope (resserrement): {_component_fmt(comps.get('YieldSlope_Tight'))}")
+        c2.write(f"CPI YoY: {_component_fmt(comps.get('CPI_YoY'))}")
+        c2.write(f"Core CPI YoY: {_component_fmt(comps.get('CoreCPI_YoY'))}")
+        c2.write(f"Breakeven dev: {_component_fmt(comps.get('Breakeven_dev'))}")
+        c3.write(f"FedFunds dev: {_component_fmt(comps.get('FedFunds_dev'))}")
+        c3.write(f"USD YoY: {_component_fmt(comps.get('USD_YoY'))}")
+        c3.write(f"Commodities YoY: {_component_fmt(comps.get('Commodities_YoY'))}")
+
+    meta = (macro_feats or {}).get("meta", {})
+    last = meta.get("last_dates") or {}
+    if last:
+        st.caption("Fraîcheur des séries clés (AAAA-MM)")
+        lines = []
+        for k in ["INDPRO","PAYEMS","CPIAUCSL","CPILFESL","T10YIE","FEDFUNDS","DGS10","DGS2","DTWEXBGS"]:
+            if k in last:
+                lines.append(f"- {k}: {last[k]}")
+        if lines:
+            st.markdown("\n".join(lines))
+
+
 # ---------- IMPORT DES MODULES (tracés) ----------
 render_macro, err = safe_import("apps.macro_sector_app", "render_macro")
 if err: log_debug(f"Failed to import apps.macro_sector_app.render_macro: {err}")
@@ -278,6 +344,38 @@ get_macro_features, err = safe_import("analytics.phase3_macro", "get_macro_featu
 if err: log_debug(f"Failed to import analytics.phase3_macro.get_macro_features: {err}")
 get_macro_features = trace_call("get_macro_features", get_macro_features)
 
+# News intelligence (aggregated signals)
+_collect_news, err = safe_import("analytics.market_intel", "collect_news")
+if err: log_debug(f"Failed to import analytics.market_intel.collect_news: {err}")
+_build_unified_news, err = safe_import("analytics.market_intel", "build_unified_features")
+if err: log_debug(f"Failed to import analytics.market_intel.build_unified_features: {err}")
+collect_news = trace_call("collect_news", _collect_news)
+build_unified_news = trace_call("build_unified_features", _build_unified_news)
+
+def _news_features_for(ticker: str = None, regions=None, window: str = "last_week", query: str = "") -> dict:
+    regions = regions or ["US", "INTL", "GEO"]
+    try:
+        if not collect_news or not build_unified_news:
+            return {}
+        items, meta = collect_news(regions=regions, window=window, query=query, tgt_ticker=(ticker or None), per_source_cap=None, limit=120)
+        feats = build_unified_news(items, target_ticker=(ticker or None), ownership=None, finviz_blob=None, macro_blob=None)
+        return feats or {}
+    except Exception as e:
+        log_debug(f"news_features_for failed: {e}")
+        return {}
+
+def _compose_features(macro_feats=None, tech_feats=None, fund=None, news_feats=None) -> dict:
+    out = {}
+    if macro_feats:
+        out["macro"] = macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
+    if tech_feats:
+        out["technical"] = tech_feats if not hasattr(tech_feats, "to_dict") else tech_feats.to_dict()
+    if fund:
+        out["fundamentals"] = fund
+    if news_feats:
+        out["news"] = news_feats
+    return out
+
 # ===== NLP_enrich (plusieurs alias) =====
 def _resolve_ask_model():
     for path, attr in [
@@ -311,7 +409,7 @@ def _resolve_arbitre():
                 analyst = Cls()
                 if hasattr(analyst, "analyze"):
                     q = ctx.get("question", f"Analyse {ctx.get('scope','macro')}")
-                    feats = ctx.get("macro_features") or ctx.get("tech_features") or ctx.get("fundamentals")
+                    feats = ctx.get("features") or ctx.get("macro_features") or ctx.get("tech_features") or ctx.get("fundamentals")
                     input_obj = Inp(
                         question=q,
                         features=feats,
@@ -363,13 +461,14 @@ user_q = st.text_area(
     key="macro_q_top"
 )
 
-# 2) Caractéristiques macro (brutes) + version “expurgée” (colonnes explicitées)
+# 2) Caractéristiques macro — affichage pro (synthèse + détails)
 macro_feats = None
 try:
     if get_macro_features:
         macro_feats = get_macro_features()
-        # Brute
-        show_full("Caractéristiques macroéconomiques (brutes)", macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict())
+        render_macro_summary_block(macro_feats if isinstance(macro_feats, dict) else {})
+        with st.expander("Détails techniques (JSON brut)"):
+            show_full("Caractéristiques macroéconomiques (brutes)", macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict())
 except BaseException as e:
     st.error(f"Chargement des caractéristiques macroéconomiques impossible : {e}")
     log_exc("get_macro_features(top)", e)
@@ -380,7 +479,11 @@ if ask_model:
         context = {}
         if macro_feats is not None:
             context["macro_features"] = macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
+        # Build aggregated news signals for context (best effort)
+        news_feats = _news_features_for(regions=["US","INTL","GEO"], window="last_week") if collect_news and build_unified_news else {}
+        context["features"] = _compose_features(macro_feats=macro_feats, news_feats=news_feats)
         st.markdown("### 🤖 Analyse par le modèle de langage (IA)")
+        st.caption("Explique les implications des signaux macro et propose des pistes d’action. La réponse peut être texte/markdown/JSON.")
         if st.button("Lancer l'analyse macro IA", key="macro_ask_top"):
             ans = ask_model(user_q, context=context)
             # on affiche tel quel (le modèle peut renvoyer texte/markdown/json)
@@ -397,7 +500,11 @@ if arbitre:
         ctx = {"scope": "macro"}
         if macro_feats is not None:
             ctx["macro_features"] = macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
+        # Enrich with aggregated news features
+        news_feats = _news_features_for(regions=["US","INTL","GEO"], window="last_week") if collect_news and build_unified_news else {}
+        ctx["features"] = _compose_features(macro_feats=macro_feats, news_feats=news_feats)
         st.markdown("### ⚖️ Synthèse de signaux macro (arbitre)")
+        st.caption("Combine les signaux macro pour orienter une rotation sectorielle cohérente. À croiser avec technique et fondamentaux.")
         decision = arbitre(ctx)
         show_full("Décision / synthèse de signaux macro", decision)
     except Exception as e:
@@ -418,6 +525,7 @@ def main():
     st.caption(f"Trace ID: `{st.session_state['trace_id']}`")
 
     st.markdown("## 🔮 Prévision macro (économie) — synthèse lisible")
+    st.caption("Vue d’ensemble: scores, composants clés, fraîcheur des séries. Les détails complets sont dans l’onglet Économie.")
 
     # 1) Question au modèle (texte par défaut explicite)
     default_q = "Peux-tu me donner une prévision claire et vulgarisée de l'inflation et de la croissance aux États-Unis pour les 6 prochains mois ?"
@@ -437,11 +545,38 @@ def main():
                 # If provider reported a hard error, surface it prominently
                 if isinstance(macro_feats, dict) and macro_feats.get("error"):
                     st.error(f"Caractéristiques macroéconomiques indisponibles: {macro_feats['error']}")
-                # Brute view
-                show_full(
-                    "Caractéristiques macroéconomiques (brutes)",
-                    macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
-                )
+                # Vue synthétique pro + JSON en expander
+                render_macro_summary_block(macro_feats if isinstance(macro_feats, dict) else {})
+                with st.expander("Détails techniques (JSON brut)"):
+                    show_full(
+                        "Caractéristiques macroéconomiques (brutes)",
+                        macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
+                    )
+
+                # Affiche un badge de fraicheur pour les séries FRED clés si disponibles
+                try:
+                    meta = macro_feats.get("meta", {}) if isinstance(macro_feats, dict) else {}
+                    last = meta.get("last_dates") or {}
+                    if last:
+                        st.caption("Actualisation des séries clés (FRED)")
+                        from datetime import datetime
+                        now = datetime.utcnow()
+                        lines = []
+                        for k in ["INDPRO","PAYEMS","CPIAUCSL","CPILFESL","T10YIE","FEDFUNDS","DGS10","DGS2","DTWEXBGS"]:
+                            d = last.get(k)
+                            if not d:
+                                continue
+                            try:
+                                dt = pd.to_datetime(d + "-01")
+                                age_days = (now - dt.to_pydatetime()).days
+                            except Exception:
+                                age_days = 9999
+                            badge = "🟢" if age_days <= 45 else ("🟠" if age_days <= 120 else "🔴")
+                            lines.append(f"{badge} {k}: {d}")
+                        if lines:
+                            st.markdown("\n".join(f"- {ln}" for ln in lines))
+                except Exception:
+                    pass
     except Exception as e:
         st.error(f"Chargement des caractéristiques macroéconomiques impossible : {e}")
         log_exc("get_macro_features(top)", e)
@@ -551,12 +686,24 @@ def main():
                         ctx2["fundamentals"] = load_fundamentals(ticker2)
                 except Exception as e:
                     st.warning(f"Données fondamentales indisponibles : {e}")
+            news_feats = {}
             if load_news:
                 try:
                     with ui_event("load_news", tickers=[ticker2]):
-                        ctx2["news"] = load_news(window_days=14, tickers=[ticker2])
+                        items = load_news(window_days=14, tickers=[ticker2])
+                        ctx2["news"] = items
                 except Exception as e:
                     st.warning(f"Chargement des actualités indisponible : {e}")
+            # Aggregated news features via market_intel (best effort)
+            try:
+                news_feats = _news_features_for(ticker=ticker2, regions=["US","INTL","GEO"], window="last_week") if collect_news and build_unified_news else {}
+            except Exception:
+                news_feats = {}
+
+            # Compose unified features bundle for the arbitrage/IA
+            ctx2["features"] = _compose_features(
+                macro_feats=None, tech_feats=ctx2.get("tech_features"), fund=ctx2.get("fundamentals"), news_feats=news_feats
+            )
 
             if ask_model:
                 if st.button("Poser la question (marché/actions)"):
@@ -647,6 +794,16 @@ def main():
                 st.code(_json_s(vers))
             except Exception as e:
                 st.write(f"Impossible d'afficher l'environnement: {e}")
+
+        with st.sidebar.expander("⚙️ Actions", expanded=False):
+            if st.button("Rafraîchir caches", use_container_width=True):
+                try:
+                    st.cache_data.clear()
+                    st.success("Caches purgés.")
+                except Exception as e:
+                    st.warning(f"Impossible de purger les caches: {e}")
+            if st.button("Recharger la page", use_container_width=True):
+                st.rerun()
 
         st.caption("Hub d'analyse financière — Modules intégrés : Macro, Actions, IA, Arbitre, Comparables, Actualités (affichage intégral, libellés développés).")
 

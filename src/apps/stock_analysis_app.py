@@ -350,7 +350,14 @@ def load_macro_indicators(p):
 # Chargement des données
 if getattr(st, "_is_dummy", False):
     # En mode test/bare, évite les appels réseau à l'import
-    stock_data = pd.DataFrame({"Close": [100, 101, 102], "Volume": [0, 0, 0]})
+    stock_data = pd.DataFrame({"Close": [100.0, 101.0, 102.0], "Volume": [0, 0, 0]})
+    # Assurer la présence des colonnes OHLC attendues par les tracés
+    if "Open" not in stock_data.columns:
+        stock_data["Open"] = stock_data["Close"].shift(1).fillna(stock_data["Close"]).astype(float)
+    if "High" not in stock_data.columns:
+        stock_data["High"] = (stock_data["Close"] * 1.01).astype(float)
+    if "Low" not in stock_data.columns:
+        stock_data["Low"] = (stock_data["Close"] * 0.99).astype(float)
     stock_data_with_indicators = add_technical_indicators(stock_data)
     company_info = {}
     financials = {}

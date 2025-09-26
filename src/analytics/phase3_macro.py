@@ -599,16 +599,35 @@ def macro_nowcast(bundle: MacroBundle) -> NowcastView:
         latest = latest_df.iloc[-1]
 
     # composants (derniers dispo)
-    def _safe_extract_last(series):
-        """Safely extract the last value from a Series, handling scalar series."""
-        if series.empty or series.shape[1] == 0:
+    def _safe_extract_last(series: pd.DataFrame):
+        """Return the last non-NaN scalar across the column(s), ignoring trailing NaNs.
+
+        This avoids NULLs when the global index includes a newer date from market
+        proxies where FRED columns are still NaN.
+        """
+        try:
+            if series is None or not isinstance(series, pd.DataFrame) or series.empty:
+                return np.nan
+            # keep only rows where at least one value is not NaN
+            s = series.dropna(how="all")
+            if s.empty:
+                return np.nan
+            # take last row with any data
+            last_row = s.iloc[-1]
+            # if single column, coerce to float
+            if isinstance(last_row, pd.Series):
+                # pick the first non-NaN value
+                v = last_row.dropna()
+                if v.empty:
+                    return np.nan
+                val = v.iloc[0]
+            else:
+                val = last_row
+            if val is None or (isinstance(val, float) and not np.isfinite(val)):
+                return np.nan
+            return float(val)
+        except Exception:
             return np.nan
-        last_val = series.iloc[-1]
-        # Handle both scalar values and pandas Series
-        if hasattr(last_val, 'item'):
-            return last_val.item()
-        else:
-            return float(last_val)
 
     comps = {
         "INDPRO_YoY": _safe_extract_last(growth.filter(like="INDPRO")) if not growth.empty and growth.filter(like="INDPRO").shape[1] else np.nan,
@@ -907,10 +926,30 @@ def get_macro_features() -> Dict[str, Any]:
                 ts = pd.Timestamp(bundle.data.index[-1]).strftime("%Y-%m-%d")
             except Exception:
                 ts = str(bundle.data.index[-1])
+        # Build last update dates for key FRED series (YYYY-MM)
+        def _last_date_col(df: pd.DataFrame, col: str) -> Optional[str]:
+            if col not in df.columns:
+                return None
+            s = df[[col]].dropna().iloc[-1:] if not df[[col]].dropna().empty else None
+            if s is None or s.empty:
+                return None
+            try:
+                d = s.index[-1]
+                return pd.Timestamp(d).strftime("%Y-%m")
+            except Exception:
+                return None
+
+        last_dates = {}
+        base_df = bundle.data
+        for c in ["INDPRO","PAYEMS","CPIAUCSL","CPILFESL","T10YIE","FEDFUNDS","DGS10","DGS2","DTWEXBGS"]:
+            v = _last_date_col(base_df, c)
+            if v:
+                last_dates[c] = v
+
         macro_features = {
             "macro_nowcast": nowcast.to_dict(),
             "timestamp": ts,
-            "meta": bundle.meta
+            "meta": {**bundle.meta, "last_dates": last_dates}
         }
 
         clean, missing = _clean_non_finite(macro_features, "macro_features")

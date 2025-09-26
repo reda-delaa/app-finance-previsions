@@ -116,6 +116,41 @@ def test_get_macro_features_real():
         ts = feats.get("timestamp")
         assert isinstance(ts, str) and len(ts) >= 10
 
+
+@pytest.mark.integration
+def test_fred_api_key_from_config_real_json(monkeypatch):
+    """
+    Real JSON call without passing the key via env/CLI: the key is sourced
+    from the local config (secrets_local.get_key). Ensures JSON path works
+    even when FRED_API_KEY env var is absent.
+    """
+    if not os.getenv("AF_ALLOW_INTERNET"):
+        pytest.skip("Set AF_ALLOW_INTERNET=1 to run network integration tests")
+
+    # Ensure env var is NOT used
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+
+    # Require that secrets_local provides a key
+    try:
+        import src.secrets_local as s  # prefer project-local
+    except Exception:
+        import secrets_local as s
+    key = getattr(s, "FRED_API_KEY", None) or s.get_key("FRED_API_KEY")
+    if not key:
+        pytest.skip("secrets_local has no FRED_API_KEY; add it to run this test")
+
+    # Disable CSV fallback so we truly exercise JSON path via config key
+    import urllib.request as _url
+    monkeypatch.setattr(_url, "urlopen", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("CSV disabled for test")))
+
+    sys.path.insert(0, str(PROJECT_SRC))
+    macro = __import__("analytics.phase3_macro", fromlist=["fetch_fred_series"])  # real module
+
+    df = macro.fetch_fred_series(["CPIAUCSL"], start="2018-01-01")
+    assert "CPIAUCSL" in df.columns
+    assert isinstance(df.index, pd.DatetimeIndex)
+    assert len(df["CPIAUCSL"].dropna()) > 0
+
 def test_fred_api_series_missing_is_nonfatal(monkeypatch):
     """
     With FRED_API_KEY set, a 400 'series does not exist' for one series should
