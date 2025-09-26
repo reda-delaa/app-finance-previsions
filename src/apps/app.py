@@ -434,8 +434,14 @@ def main():
         with ui_event("load_macro_features"):
             if get_macro_features:
                 macro_feats = get_macro_features()
-                # Brute
-                show_full("Caractéristiques macroéconomiques (brutes)", macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict())
+                # If provider reported a hard error, surface it prominently
+                if isinstance(macro_feats, dict) and macro_feats.get("error"):
+                    st.error(f"Caractéristiques macroéconomiques indisponibles: {macro_feats['error']}")
+                # Brute view
+                show_full(
+                    "Caractéristiques macroéconomiques (brutes)",
+                    macro_feats if not hasattr(macro_feats, "to_dict") else macro_feats.to_dict()
+                )
     except Exception as e:
         st.error(f"Chargement des caractéristiques macroéconomiques impossible : {e}")
         log_exc("get_macro_features(top)", e)

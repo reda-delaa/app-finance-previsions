@@ -172,49 +172,187 @@ class ScenarioImpact:
 
 def _fred_csv(series_id: str, start: Optional[str] = None) -> pd.Series:
     """
-    Télécharge une série FRED via CSV public.
-    start: 'YYYY-MM-DD' (optionnel)
+    Télécharge une série FRED via CSV public (fredgraph) avec traitements robustes.
+    - UA explicite
+    - Variantes d'entêtes (DATE/observation_date)
+    - Colonne valeur alternative (VALUE/value ou 2e colonne)
+    - Nettoyage '.' → NaN
     """
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
-    if start:
-        url += f"&startdate={start}"
-    try:
-        with urllib.request.urlopen(url, timeout=20) as resp:
-            raw = resp.read()
-        df = pd.read_csv(io.BytesIO(raw))
+    # Try official JSON API first if FRED_API_KEY is configured
+    import os
+    api_key = os.getenv("FRED_API_KEY", "").strip()
+    if not api_key:
+        # Fallback to secrets_local.get_key (centralized local secrets)
+        _get_key = None
+        try:
+            from src.secrets_local import get_key as _get_key  # type: ignore
+        except Exception:
+            try:
+                from secrets_local import get_key as _get_key  # type: ignore
+            except Exception:
+                _get_key = None
+        if _get_key:
+            api_key = (_get_key("FRED_API_KEY") or "").strip()
+    api_key = api_key or None
+    if api_key:
+        import requests
+        params = {
+            "series_id": series_id,
+            "api_key": api_key,
+            "file_type": "json",
+        }
+        if start:
+            params["observation_start"] = start
+        r = None
+        try:
+            r = requests.get(
+                "https://api.stlouisfed.org/fred/series/observations",
+                params=params,
+                headers={"User-Agent": "AF/1.0 (+macro_phase3)"},
+                timeout=20,
+            )
+        except Exception as e:
+            # Key is present: treat network failure as fatal to surface the issue
+            raise RuntimeError(f"FRED API request failed for {series_id}: {type(e).__name__}: {e}") from e
 
-        # Check for different possible date column names
-        date_col = None
-        if "observation_date" in df.columns:
-            date_col = "observation_date"
-        elif "DATE" in df.columns:
-            date_col = "DATE"
-        elif "date" in df.columns:
-            date_col = "date"
+        # If HTTP error, inspect body for a benign "series does not exist" case
+        if r.status_code != 200:
+            body = (r.text or "").strip()
+            if "series does not exist" in body.lower():
+                logger.warning(f"fred_series_missing {series_id} (FRED 400)")
+                return pd.Series(dtype=float)
+            # Otherwise, consider it fatal (likely invalid key or quota)
+            raise RuntimeError(f"FRED API returned HTTP {r.status_code} for {series_id}: {body[:200]}")
 
-        # Check if data is available
-        if date_col is None or series_id not in df.columns:
+        # Parse JSON
+        try:
+            js = r.json()
+        except Exception as e:
+            raise RuntimeError(f"FRED API invalid JSON for {series_id}: {e}") from e
+
+        # Known error format from FRED
+        if isinstance(js, dict) and ("error_code" in js or "error_message" in js):
+            code = js.get("error_code", "?")
+            msg = js.get("error_message", "")
+            if isinstance(msg, str) and "series does not exist" in msg.lower():
+                logger.warning(f"fred_series_missing {series_id} (FRED error {code})")
+                return pd.Series(dtype=float)
+            # Invalid API key or other auth issues → fatal
+            raise RuntimeError(f"FRED API error for {series_id}: {code} {msg}")
+
+        obs = js.get("observations", []) if isinstance(js, dict) else []
+        if not obs:
+            # No points for this specific series — treat as missing (not a key failure)
+            logger.warning(f"fred_series_empty_json {series_id}")
             return pd.Series(dtype=float)
 
-        s = pd.to_datetime(df[date_col])
-        v = pd.to_numeric(df[series_id].replace(".", np.nan), errors="coerce")
-        out = pd.Series(v.values, index=s, name=series_id).sort_index()
-        return out.dropna()
+        dates = pd.to_datetime([o.get("date") for o in obs], errors="coerce")
+        vals = pd.to_numeric([o.get("value") for o in obs], errors="coerce")
+        out = pd.Series(vals, index=dates, name=series_id).sort_index().dropna()
+        if out.empty:
+            logger.warning(f"fred_series_all_nan {series_id}")
+            return pd.Series(dtype=float)
+        logger.info(
+            "fred_ok_json %s rows=%d min=%s max=%s",
+            series_id, len(out), out.index.min().date(), out.index.max().date()
+        )
+        return out
+
+    base = "https://fred.stlouisfed.org/graph/fredgraph.csv"
+    url = f"{base}?id={series_id}"
+    if start:
+        url += f"&startdate={start}"
+
+    txt = None
+    # 1) Try requests with User-Agent (plus fiable derrière certains proxies)
+    try:
+        import requests
+        r = requests.get(url, headers={"User-Agent": "AF/1.0 (+macro_phase3)"}, timeout=20)
+        if r.status_code == 200 and r.text and not r.text.lstrip().startswith("<"):
+            txt = r.text
+    except Exception:
+        txt = None
+
+    # 2) Fallback urllib
+    if txt is None:
+        try:
+            with urllib.request.urlopen(url, timeout=20) as resp:
+                raw = resp.read()
+            txt = raw.decode("utf-8", errors="ignore")
+        except Exception:
+            txt = None
+
+    if not txt:
+        logger.warning(f"FRED fetch failed {series_id}: empty response")
+        return pd.Series(dtype=float)
+
+    try:
+        # Some responses might include stray BOM or leading whitespace
+        txt = txt.lstrip("\ufeff")
+        df = pd.read_csv(io.StringIO(txt))
+    except Exception:
+        logger.warning(f"FRED parse failed {series_id}: invalid CSV")
+        return pd.Series(dtype=float)
+
+    # Identify date column
+    date_col = None
+    for cand in ("observation_date", "DATE", "date"):
+        if cand in df.columns:
+            date_col = cand
+            break
+    if date_col is None:
+        logger.warning(f"FRED {series_id}: missing date column")
+        return pd.Series(dtype=float)
+
+    # Identify value column
+    val_col = None
+    if series_id in df.columns:
+        val_col = series_id
+    elif "VALUE" in df.columns:
+        val_col = "VALUE"
+    elif "value" in df.columns:
+        val_col = "value"
+    else:
+        # choose the first non-date column if exactly 2 columns
+        non_date = [c for c in df.columns if c != date_col]
+        if len(non_date) == 1:
+            val_col = non_date[0]
+
+    if val_col is None:
+        logger.warning(f"FRED {series_id}: missing value column")
+        return pd.Series(dtype=float)
+
+    try:
+        df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+        vals = pd.to_numeric(df[val_col].replace(".", np.nan), errors="coerce")
+        out = pd.Series(vals.values, index=df[date_col], name=series_id).sort_index()
+        out = out.dropna()
+        # Log basic stats for diagnostics
+        if not out.empty:
+            logger.info(
+                "fred_ok %s rows=%d min=%s max=%s",
+                series_id, len(out),
+                out.index.min().date() if hasattr(out.index.min(), 'date') else str(out.index.min()),
+                out.index.max().date() if hasattr(out.index.max(), 'date') else str(out.index.max()),
+            )
+        else:
+            logger.warning(f"fred_empty {series_id}")
+        return out
     except Exception as e:
-        # Return empty series instead of raising error
+        logger.warning(f"FRED {series_id}: error building series: {e}")
         return pd.Series(dtype=float)
 
 
 def fetch_fred_series(series: List[str], start: Optional[str] = None, sleep: float = 0.15) -> pd.DataFrame:
-    """Batch FRED (tolérant aux échecs)."""
+    """Batch FRED (tolérant aux échecs) avec logs de diagnostic par série."""
     data = {}
     for sid in series:
-        try:
-            s = _fred_csv(sid, start=start)
-            if not s.empty:
-                data[sid] = s
-        except Exception:
-            pass
+        s = _fred_csv(sid, start=start)
+        if not s.empty:
+            data[sid] = s
+        else:
+            logger.warning(f"fred_series_empty {sid}")
+        # small politeness delay
         time.sleep(sleep)
     if not data:
         return pd.DataFrame()
@@ -763,9 +901,15 @@ def get_macro_features() -> Dict[str, Any]:
         # Generate the macro nowcast
         nowcast = macro_nowcast(bundle)
 
+        ts = None
+        if not bundle.data.empty:
+            try:
+                ts = pd.Timestamp(bundle.data.index[-1]).strftime("%Y-%m-%d")
+            except Exception:
+                ts = str(bundle.data.index[-1])
         macro_features = {
             "macro_nowcast": nowcast.to_dict(),
-            "timestamp": bundle.data.index[-1] if not bundle.data.empty else None,
+            "timestamp": ts,
             "meta": bundle.meta
         }
 

@@ -24,3 +24,15 @@ logs/
 .DS_Store
 .vscode/
 .idea/
+
+# Secrets / credentials (never commit)
+.env
+.env.*
+*.env
+secrets_local.py
+src/secrets_local.py
+secrets.json
+credentials.json
+*.key
+*.pem
+*.p12
