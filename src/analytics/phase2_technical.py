@@ -327,22 +327,25 @@ def detect_regime(ind: IndicatorSet) -> RegimeInfo:
 
     # Trend
     if np.isfinite(sl):
-        if sl > 0 and dd_last > -0.15:
+        # Seuils prudents: une très faible pente ~0 est traitée comme Range
+        thr = 0.01
+        if sl > thr and dd_last > -0.15:
             trend = "Bull"
-        elif sl < 0 and dd.min() < -0.20:
+        elif sl < -thr and dd.min() < -0.20:
             trend = "Bear"
         else:
             trend = "Range"
     else:
         trend = "Range"
 
-    # Vol regime via ATR/Close (normalisé)
-    atr = df["ATR_14"].dropna()
+    # Vol regime via ATR/Close (normalisé), tolère absence d'ATR
     vol_regime = "LowVol"
-    if len(atr):
-        atr_pct = float(atr.iloc[-1] / close.iloc[-1] * 100.0)
-        if atr_pct >= 3.0:
-            vol_regime = "HighVol"
+    if "ATR_14" in df.columns:
+        atr = df["ATR_14"].dropna()
+        if len(atr) and len(close):
+            atr_pct = float(atr.iloc[-1] / close.iloc[-1] * 100.0)
+            if atr_pct >= 3.0:
+                vol_regime = "HighVol"
 
     return RegimeInfo(trend=trend, vol_regime=vol_regime, slope200=float(sl) if np.isfinite(sl) else 0.0,
                       drawdown_last=float(dd_last) if np.isfinite(dd_last) else 0.0)
@@ -729,8 +732,11 @@ def compute_technical_features(ticker: str, window: int = 180) -> Dict[str, Any]
 
         # Convert to dict if it's not already
         if hasattr(result, 'to_dict'):
-            return result.to_dict()
+            out = result.to_dict()
+            out.setdefault('window', window)
+            return out
         elif isinstance(result, dict):
+            result.setdefault('window', window)
             return result
         else:
             # Fallback conversion

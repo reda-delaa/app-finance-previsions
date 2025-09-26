@@ -348,33 +348,43 @@ def load_macro_indicators(p):
     return pd.DataFrame(data)
 
 # Chargement des données
-with st.spinner("Chargement des données de l'action..."):
-    stock_data = load_stock_data(ticker, period)
-    if stock_data is None or stock_data.empty:
-        st.error(f"Impossible de récupérer les données pour {ticker}. Vérifiez que le symbole est correct.")
-        st.stop()
-    
-    # Ajouter les indicateurs techniques
+if getattr(st, "_is_dummy", False):
+    # En mode test/bare, évite les appels réseau à l'import
+    stock_data = pd.DataFrame({"Close": [100, 101, 102], "Volume": [0, 0, 0]})
     stock_data_with_indicators = add_technical_indicators(stock_data)
-    
-    # Informations sur l'entreprise
-    company_info = load_company_info(ticker)
-    
-    # Données financières
-    financials = load_financials_cached(ticker)
-    
-    # Données de l'indice de référence
-    benchmark_data = load_benchmark_data_cached(benchmark, period)
-    
-    # Actions similaires
-    try:
-        similar_stocks = load_similar_stocks_cached(ticker) if compare_peers else []
-    except Exception as e:
-        st.warning(f"Erreur lors du chargement des actions similaires: {e}")
-        similar_stocks = []
-    
-    # Indicateurs macroéconomiques
-    macro_data = load_macro_indicators(period) if compare_macro else pd.DataFrame()
+    company_info = {}
+    financials = {}
+    benchmark_data = stock_data.copy()
+    similar_stocks = []
+    macro_data = pd.DataFrame()
+else:
+    with st.spinner("Chargement des données de l'action..."):
+        stock_data = load_stock_data(ticker, period)
+        if stock_data is None or stock_data.empty:
+            st.error(f"Impossible de récupérer les données pour {ticker}. Vérifiez que le symbole est correct.")
+            st.stop()
+        
+        # Ajouter les indicateurs techniques
+        stock_data_with_indicators = add_technical_indicators(stock_data)
+        
+        # Informations sur l'entreprise
+        company_info = load_company_info(ticker)
+        
+        # Données financières
+        financials = load_financials_cached(ticker)
+        
+        # Données de l'indice de référence
+        benchmark_data = load_benchmark_data_cached(benchmark, period)
+        
+        # Actions similaires
+        try:
+            similar_stocks = load_similar_stocks_cached(ticker) if compare_peers else []
+        except Exception as e:
+            st.warning(f"Erreur lors du chargement des actions similaires: {e}")
+            similar_stocks = []
+        
+        # Indicateurs macroéconomiques
+        macro_data = load_macro_indicators(period) if compare_macro else pd.DataFrame()
 
 # --------- Affichage des informations de l'entreprise ----------
 if company_info:
