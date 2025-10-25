@@ -98,6 +98,26 @@ with st.expander("Afficher/rafraîchir", expanded=False):
     else:
         st.caption("Log introuvable — lancez l'UI en arrière-plan pour créer le log.")
 
+st.markdown("#### Données — Fraîcheur (qualité)")
+try:
+    repo_root = Path(__file__).resolve().parents[3]
+    parts = sorted((repo_root/'data'/'quality').glob('dt=*/freshness.json'))
+    if parts:
+        import json as _json
+        js = _json.loads(parts[-1].read_text(encoding='utf-8'))
+        checks = js.get('checks') or {}
+        c1, c2, c3, c4 = st.columns(4)
+        with c1: st.metric("Forecasts (aujourd'hui)", "Oui" if checks.get('forecasts_today') else "Non")
+        with c2: st.metric("Final (aujourd'hui)", "Oui" if checks.get('final_today') else "Non")
+        with c3: st.metric("Macro (aujourd'hui)", "Oui" if checks.get('macro_today') else "Non")
+        with c4:
+            r = checks.get('prices_5y_coverage_ratio')
+            st.metric("Couverture prix ≥5y", f"{int(r*100)}%" if isinstance(r, (int,float)) else "n/a")
+    else:
+        st.caption("Aucun freshness.json — exécutez `make update-monitor`.")
+except Exception:
+    st.caption("Section fraîcheur indisponible (lecture).")
+
 st.markdown("#### Action (Admin) — Redémarrer l'UI")
 with st.expander("Redémarrer l'interface (arrière‑plan)", expanded=False):
     st.caption("Cette action stoppe l'instance Streamlit courante puis la relance en arrière‑plan avec journaux. L'interface sera indisponible quelques secondes.")

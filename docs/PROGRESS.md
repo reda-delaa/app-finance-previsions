@@ -76,3 +76,6 @@ Planned/Started (agents)
 - Equity forecast agent: generates dt=YYYYMMDD/forecasts.parquet with baseline (momentum/vol) for 1w/1m/1y.
 - Forecast aggregator: reads latest forecasts.parquet, computes final_score, writes dt=YYYYMMDD/final.parquet.
 - Makefile targets: `make equity-forecast`, `make forecast-aggregate`.
+Phase 2 (in progress)
+- Macro forecast agent: writes `data/macro/forecast/dt=YYYYMMDD/macro_forecast.{json,parquet}` with CPI YoY, yield curve slope, unemployment and a crude recession probability across horizons (1m/3m/12m). Target: `make macro-forecast`.
+- Update monitor agent: writes `data/quality/dt=YYYYMMDD/freshness.json` with latest partition dates and coverage checks; target: `make update-monitor`. Observability reads and displays the summary.

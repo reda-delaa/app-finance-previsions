@@ -1,0 +1,17 @@
+{
+  "asof": "2025-10-25T22:18:17.618572Z",
+  "dt": "20251025",
+  "latest": {
+    "forecast_dt": "20251025",
+    "final_dt": "20251025",
+    "macro_forecast_dt": "20251025",
+    "news_dt": "2025-10-25",
+    "quality_dt": "20251025"
+  },
+  "checks": {
+    "forecasts_today": true,
+    "final_today": true,
+    "macro_today": true,
+    "prices_5y_coverage_ratio": null
+  }
+}

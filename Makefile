@@ -166,3 +166,12 @@ equity-forecast:
 
 forecast-aggregate:
 	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.forecast_aggregator_agent
+
+# --- Macro & freshness agents ---
+.PHONY: macro-forecast update-monitor
+
+macro-forecast:
+	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.macro_forecast_agent
+
+update-monitor:
+	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.update_monitor_agent
