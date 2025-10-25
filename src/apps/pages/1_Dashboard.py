@@ -11,6 +11,7 @@ if str(SRC) not in _sys.path:
 
 from analytics.recommender import rank
 from core.data_store import have_files, query_duckdb
+import numpy as np
 
 
 st.set_page_config(page_title="Dashboard — Finance Agent", layout="wide")
@@ -115,6 +116,57 @@ try:
                                     pass
             except Exception:
                 pass
+except Exception:
+    pass
+
+# Optional: Cumulative Top‑N performance chart if parquet forecasts + cached prices exist
+try:
+    if have_files("data/forecast/dt=*/forecasts.parquet"):
+        dfp = query_duckdb("select dt, ticker, direction, confidence, expected_return from read_parquet('data/forecast/dt=*/forecasts.parquet') where horizon='1m'")
+        if not dfp.empty:
+            # compute daily mean return of Top‑N and cumulate (reuse Evaluation logic, simplified)
+            dfp['dt'] = pd.to_datetime(dfp['dt'], errors='coerce')
+            top_n = 5
+            H = 21
+            def _realized(ticker: str, d: pd.Timestamp, days: int) -> float | None:
+                p = Path("data/prices")/f"ticker={ticker}"/"prices.parquet"
+                if not p.exists():
+                    return None
+                try:
+                    df = pd.read_parquet(p)
+                    if 'date' in df.columns:
+                        df['date'] = pd.to_datetime(df['date'], errors='coerce')
+                        df = df.set_index('date')
+                    if df.empty or 'Close' not in df.columns:
+                        return None
+                    idx = df.index.get_loc(d, method='nearest')
+                except Exception:
+                    after = df[df.index >= d]
+                    if after.empty: return None
+                    idx = df.index.get_loc(after.index[0])
+                j = min(len(df)-1, idx+days)
+                return float(df['Close'].iloc[j]/df['Close'].iloc[idx]-1.0)
+            daily = []
+            # simple score: direction*confidence + expected_return
+            dir_map = {"up": 1.0, "flat": 0.0, "down": -1.0}
+            dfp['dir_base'] = dfp['direction'].map(dir_map).fillna(0.0)
+            dfp['score'] = dfp['dir_base']*dfp['confidence'].astype(float) + 0.5*dfp['expected_return'].fillna(0.0).astype(float)
+            for d, sdf in dfp.groupby(dfp['dt'].dt.date):
+                sdf = sdf.sort_values('score', ascending=False).head(top_n)
+                rets = []
+                for _, row in sdf.iterrows():
+                    rr = _realized(str(row['ticker']), pd.Timestamp(d), H)
+                    if rr is not None:
+                        rets.append(rr)
+                if rets:
+                    daily.append({'dt': str(d), 'mean_return': float(np.mean(rets))})
+            if daily:
+                perf = pd.DataFrame(daily)
+                perf['dt'] = pd.to_datetime(perf['dt'], errors='coerce')
+                perf = perf.sort_values('dt')
+                perf['cum_return'] = (1.0 + perf['mean_return']).cumprod() - 1.0
+                st.subheader("Cumulative Performance (Top‑N basket, 1m horizon)")
+                st.area_chart(perf.set_index('dt')[['cum_return']])
 except Exception:
     pass
 if chosen:
