@@ -108,6 +108,21 @@ if run:
                 })
                 st.subheader("Details")
                 st.dataframe(pd.DataFrame(details), use_container_width=True)
+                # Calibration (probability-of-up proxy)
+                try:
+                    st.subheader("Confidence Calibration (simple)")
+                    det = pd.DataFrame(details)
+                    if not det.empty:
+                        # Predicted up probability proxy
+                        det['p_up'] = np.where(det['direction']=='up', det['confidence'], 1.0 - det['confidence'])
+                        det['realized_up'] = (det['realized_return'] > 0).astype(int)
+                        bins = [0.0,0.5,0.6,0.7,0.8,0.9,1.0]
+                        labels = ['≤0.5','0.5–0.6','0.6–0.7','0.7–0.8','0.8–0.9','>0.9']
+                        det['p_bin'] = pd.cut(det['p_up'].clip(0,1), bins=bins, labels=labels, include_lowest=True)
+                        calib = det.groupby('p_bin')['realized_up'].mean().reset_index().rename(columns={'realized_up':'actual_up_rate'})
+                        st.bar_chart(calib.set_index('p_bin'))
+                        st.caption("If well calibrated, higher confidence bins should map to higher actual up rates. This is a simple proxy; consider a dedicated probability model for rigorous calibration.")
+                except Exception:
+                    pass
             else:
                 st.info("Insufficient price cache to compute realized returns.")
-

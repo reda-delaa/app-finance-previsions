@@ -350,8 +350,26 @@ def run_once() -> Dict[str, Any]:
     except Exception as e:
         out["actions"].append({"macro_error": str(e)})
     try:
-        p = update_prices_and_fundamentals(watchlist)
-        out["actions"].append({"prices_funda": p})
+        # Refresh prices/fundamentals at most every PRICE_REFRESH_HOURS
+        refresh_hours = int(os.getenv("PRICE_REFRESH_HOURS", "24"))
+        last = st.get("last_runs", {}).get("last_prices_refresh_iso")
+        do_refresh = True
+        if last:
+            try:
+                from datetime import datetime, timezone
+                last_dt = datetime.fromisoformat(last.replace("Z","+00:00"))
+                age_h = (datetime.now(timezone.utc) - last_dt).total_seconds()/3600.0
+                do_refresh = age_h >= max(1, refresh_hours)
+            except Exception:
+                do_refresh = True
+        if do_refresh:
+            p = update_prices_and_fundamentals(watchlist)
+            out["actions"].append({"prices_funda": p})
+            # store timestamp
+            from datetime import datetime, timezone
+            st.setdefault("last_runs", {})["last_prices_refresh_iso"] = datetime.now(timezone.utc).isoformat()
+        else:
+            out["actions"].append({"prices_funda": "skipped_recently_refreshed"})
     except Exception as e:
         out["actions"].append({"prices_error": str(e)})
     try:
