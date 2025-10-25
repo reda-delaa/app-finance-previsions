@@ -141,6 +141,30 @@ dash-start:
 dash-smoke:
 	PYTHONPATH=$$PWD/src $(PYTHON) ops/ui/dash_smoke.py
 
+.PHONY: dash-start-bg dash-restart-bg dash-status dash-logs
+dash-start-bg:
+	AF_DASH_PORT=$${AF_DASH_PORT-8050} bash scripts/dash_start_bg.sh
+
+dash-restart-bg:
+	AF_DASH_PORT=$${AF_DASH_PORT-8050} bash scripts/dash_restart_bg.sh
+
+dash-status:
+	AF_DASH_PORT=$${AF_DASH_PORT-8050} bash scripts/dash_status.sh
+
+dash-logs:
+	tail -f logs/dash/dash_$${AF_DASH_PORT-8050}.log
+
+.PHONY: dash-stop dash-restart
+dash-stop:
+	bash scripts/dash_stop.sh
+
+dash-restart:
+	bash scripts/dash_restart_bg.sh
+
+.PHONY: dash-smoke-mcp
+dash-smoke-mcp:
+	node ops/ui/mcp_dash_smoke.mjs || true
+
 .PHONY: ui-watch
 ui-watch:
 	AF_UI_PORT=$${AF_UI_PORT-5555} AF_UI_WATCH_INTERVAL=$${AF_UI_WATCH_INTERVAL-5} bash scripts/ui_watch.sh

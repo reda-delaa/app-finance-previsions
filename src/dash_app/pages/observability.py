@@ -14,7 +14,7 @@ from dash import html, dcc, Output, Input, State, no_update
 def _ui_health_card() -> dbc.Card:
     port = os.getenv("AF_DASH_PORT", "8050")
     return dbc.Card([
-        dbc.CardHeader("UI — Santé (Dash)"),
+        dbc.CardHeader("UI — Santé (Dash actuelle)"),
         dbc.CardBody([
             html.Small(f"Dash port: {port}"), html.Br(),
             html.Div(id="dash-http-status", children=html.Small("HTTP: —")),
@@ -45,13 +45,14 @@ def _freshness_card() -> dbc.Card:
 
 def _admin_controls_card() -> dbc.Card:
     return dbc.Card([
-        dbc.CardHeader("Actions (Admin) — UI Streamlit"),
+        dbc.CardHeader("Actions (Admin) — Ancienne UI (Streamlit — legacy)"),
         dbc.CardBody([
             html.Div([
                 dbc.Button("Start (bg)", id="btn-start", color="success", size="sm", className="me-2"),
                 dbc.Button("Restart (bg)", id="btn-restart", color="warning", size="sm", className="me-2"),
                 dbc.Button("Stop", id="btn-stop", color="danger", size="sm"),
             ], className="mb-2"),
+            html.Small("Note: ces actions pilotent l’ancienne interface Streamlit uniquement."),
             dcc.Textarea(id="script-output", style={"width": "100%", "height": "120px"}),
         ])
     ])
@@ -59,7 +60,7 @@ def _admin_controls_card() -> dbc.Card:
 
 def _logs_card() -> dbc.Card:
     return dbc.Card([
-        dbc.CardHeader("Log en direct (Streamlit)"),
+        dbc.CardHeader("Log en direct (Streamlit — legacy)"),
         dbc.CardBody([
             dcc.Interval(id="log-interval", interval=4000, n_intervals=0),
             html.Pre(id="log-view", style={"maxHeight": "300px", "overflowY": "auto"}),

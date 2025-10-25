@@ -4,24 +4,47 @@ from pathlib import Path
 import json
 import pandas as pd
 import dash_bootstrap_components as dbc
-from dash import html
+from dash import html, dcc
+import dash
 
 
-def _top_final() -> dbc.Card:
-    parts = sorted(Path('data/forecast').glob('dt=*/final.parquet'))
-    if not parts:
-        return dbc.Card(dbc.CardBody([html.Small("Aucune donnée final.parquet trouvée." )]))
-    df = pd.read_parquet(parts[-1])
-    if df.empty:
-        return dbc.Card(dbc.CardBody([html.Small("final.parquet vide.")]))
-    top = df[df['horizon']=='1m'].sort_values('final_score', ascending=False).head(10)
-    if top.empty:
-        return dbc.Card(dbc.CardBody([html.Small("Pas de lignes horizon 1m.")]))
-    table = dbc.Table.from_dataframe(top[['ticker','final_score']].reset_index(drop=True), striped=True, bordered=False, hover=True, size='sm')
-    return dbc.Card([
-        dbc.CardHeader("Top 10 (Final, 1m)"),
-        dbc.CardBody(table),
-    ])
+def _list_partitions(root: Path) -> list[str]:
+    try:
+        parts = []
+        for p in sorted(root.glob('dt=*')):
+            # accept dt=YYYYMMDD only
+            s = p.name.split('=', 1)[-1]
+            if s.isdigit():
+                parts.append(s)
+        return parts
+    except Exception:
+        return []
+
+
+def _top_final(dt: str | None = None) -> dbc.Card:
+    try:
+        if dt:
+            target = Path('data/forecast') / f'dt={dt}' / 'final.parquet'
+            if not target.exists():
+                return dbc.Card(dbc.CardBody([html.Small(f"Aucun final.parquet pour dt={dt}.")]))
+            df = pd.read_parquet(target)
+        else:
+            parts = sorted(Path('data/forecast').glob('dt=*/final.parquet'))
+            if not parts:
+                return dbc.Card(dbc.CardBody([html.Small("Aucune donnée final.parquet trouvée.")]))
+            df = pd.read_parquet(parts[-1])
+        if df.empty:
+            return dbc.Card(dbc.CardBody([html.Small("final.parquet vide.")]))
+        top = df[df.get('horizon', pd.Series())=='1m'].sort_values('final_score', ascending=False).head(10)
+        if top.empty or 'ticker' not in top.columns or 'final_score' not in top.columns:
+            return dbc.Card(dbc.CardBody([html.Small("Données insuffisantes (colonnes manquantes).")]))
+        table = dbc.Table.from_dataframe(top[['ticker','final_score']].reset_index(drop=True), striped=True, bordered=False, hover=True, size='sm')
+        return dbc.Card([
+            dbc.CardHeader("Top 10 (Final, 1m)"),
+            dbc.CardBody(table),
+        ])
+    except Exception as e:
+        return dbc.Card(dbc.CardBody([html.Small(f"Erreur lecture final: {e}")]))
 
 
 def layout():
@@ -45,4 +68,34 @@ def layout():
         pass
 
     header = html.Div([html.H3("Dashboard — Top picks"), badge] if badge else [html.H3("Dashboard — Top picks")])
-    return html.Div([header, _top_final()])
+
+    # Partition selector
+    dts = _list_partitions(Path('data/forecast'))
+    default_dt = dts[-1] if dts else None
+    controls = dbc.Row([
+        dbc.Col([
+            html.Small("Date (partition dt=YYYYMMDD) ", className="me-2"),
+            dcc.Dropdown(
+                id='dash-date-select',
+                options=[{"label": x, "value": x} for x in dts],
+                value=default_dt,
+                placeholder="Sélectionner une date",
+                clearable=True,
+                style={"minWidth": "220px"},
+            )
+        ], md=4),
+    ], className="mb-3")
+
+    return html.Div([
+        header,
+        controls,
+        html.Div(id='dash-top-final', children=_top_final(default_dt)),
+    ])
+
+
+@dash.callback(dash.Output('dash-top-final', 'children'), dash.Input('dash-date-select', 'value'))
+def on_dt_change(dt):
+    try:
+        return _top_final(dt)
+    except Exception as e:
+        return dbc.Card(dbc.CardBody([html.Small(f"Erreur Top Final: {e}")]))

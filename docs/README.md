@@ -1,12 +1,20 @@
 Project Docs — Finance Agent
 
 Quickstart
-- UI canonical port: `5555`. Start with `make ui-start`.
-- After any UI change: `make ui-restart` (single instance policy).
-- Background mode: `make ui-start-bg` / `make ui-restart-bg` (non‑blocking; logs under `logs/ui/streamlit_5555.log`).
-- Check status/logs: `make ui-status` / `make ui-logs`.
-- Keep UI always up: `make ui-watch` (auto‑restart if port is down).
-- Optional search backend: `make searx-up` then `export SEARXNG_LOCAL_URL=http://localhost:8082`.
+
+- Dash (nouvelle UI — actuelle)
+  - Port par défaut: `8050`.
+  - Démarrer (BG): `make dash-start-bg`
+  - Redémarrer (BG): `make dash-restart-bg`
+  - Statut/Logs: `make dash-status` / `make dash-logs`
+  - Smoke test: `make dash-smoke` (codes 200) ; MCP: `make dash-smoke-mcp` (Playwright MCP)
+  - Hot reload: lancer avec `AF_DASH_DEBUG=true`.
+
+- Streamlit (ancienne UI — legacy, pas de nouvelles features)
+  - Port: `5555`. Démarrer: `make ui-start`, Redémarrer: `make ui-restart`.
+  - Mode BG: `make ui-start-bg` / `make ui-restart-bg` (logs `logs/ui/streamlit_5555.log`).
+  - Statut/Logs: `make ui-status` / `make ui-logs`.
+  - Maintenance ponctuelle uniquement pendant la migration vers Dash.
 
 MCP & Codex CLI
 - Codex config: `~/.codex/config.toml` (browser MCP, architecture analyzer, filesystem, memory, mermaid, sqlite, serper/tavily/firecrawl, spec‑workflow, taskmanager, FRED/Finnhub, Playwright MCP).
@@ -16,7 +24,7 @@ MCP & Codex CLI
 Docs Map
 - Product: `product/backlog.md` — EPICs, user stories, acceptance criteria.
 - Architecture: `architecture/vision.md`, `architecture/c4.md`, `architecture/refactor_plan.md`.
-- Architecture (UI migration): `architecture/dash_migration.md` — plan de migration Streamlit → Dash.
+- Architecture (UI): `architecture/dash_migration.md` — migration Streamlit → Dash (Dash = cible).
 - UI: `ui/ui_audit.md` — audit, decisions, and action plan.
 - Progress: `PROGRESS.md` — what’s done, what’s next, run discipline.
 - QA: `qa/ATLAS_QA.md` — procedure for ATLAS to verify commits, restart UI, test pages, and report.

@@ -1,0 +1,20 @@
+{
+  "name": "analyse-financiere",
+  "version": "1.0.0",
+  "description": "Suite pro d'outils d’analyse financière combinant signaux macro (FRED), technique (yfinance), fondamentaux, et news agrégées — puis synthétisés par un arbitre/IA pour orienter la décision (rotation sectorielle, couverture FX/taux, focus titres).",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "private": "true",
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.2"
+  }
+}

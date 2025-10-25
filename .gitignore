@@ -5,9 +5,14 @@ __pycache__/
 *.egg-info/
 *.eggs/
 .coverage*
+.coverage
+coverage.xml
 .pytest_cache/
 .mypy_cache/
 .ipynb_checkpoints/
+htmlcov/
+dist/
+build/
 
 # Projet
 cache/
@@ -20,6 +25,12 @@ logs/
 *.stderr.txt
 *.stdout.txt
 
+# Node / JS
+node_modules/
+
+# Virtual envs
+.venv/
+
 # OS/IDE
 .DS_Store
 .vscode/
@@ -29,6 +40,9 @@ logs/
 .env
 .env.*
 *.env
+# Keep example env files tracked
+!.env.example
+!**/.env.example
 secrets_local.py
 src/secrets_local.py
 secrets.json

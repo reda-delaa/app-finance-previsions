@@ -8,8 +8,10 @@ Objectifs
 Couches
 - Domain: `src/core/models.py`, `src/core/io_utils.py`, `src/core/market_data.py`, `src/core/config.py`.
 - Application: orchestrations `src/analytics/*` (market_intel, phase2_technical, phase3_macro, econ_llm_agent) et use-cases.
-- Adapters: Ingestion `src/ingestion/*`, Data sources `src/analytics/data_sources/*`, UI `src/apps/*`, `src/utils/st_ui.py`.
- - Ops: scripts `scripts/*.py`, cibles `Makefile`, et pages Admin « status ».
+- Adapters: Ingestion `src/ingestion/*`, Data sources `src/analytics/data_sources/*`.
+- UI (actuelle): Dash `src/dash_app/*`.
+- UI (ancienne/legacy): Streamlit `src/apps/*`, utilitaires `src/utils/st_ui.py`.
+- Ops: scripts `scripts/*.py`, cibles `Makefile`, et pages Admin « status ».
 
 Contraintes & Standards
 - Contrats de données explicites (Pydantic dans models.py) entre couches.
@@ -18,14 +20,15 @@ Contraintes & Standards
  - Partitions immuables: `data/<domaine>/dt=YYYYMMDD/` (Parquet/JSON), idempotence par date.
  - UI ne suggère pas d’exécuter des scripts; ces conseils vivent dans docs/Admin.
 
-Pages UI (Streamlit)
-- Top‑nav sticky + footer (port 5555 visible), séparation claire « Prévisions » vs « Administration ».
-- Dashboard Macro (FRED, GSCPI, GPR) avec comparaisons temporelles.
-- News & Sentiment (Tavily/Firecrawl + résumés) avec états vides explicites.
-- Stock Deep Dive (fondamentaux, technique, pairs) — JSON détaillé sous expander.
-- Prévisions & Backtest (marché/secteurs/titres, résultats + incertitudes) ; exports CSV.
-- Observabilité (logs récents, santé des APIs, latence) — pas d’exposition de noms de clés sensibles.
-- Pages dépendant d’une date (Régimes/Risque/Récession/Mémos): sélecteur de date en page (fallback = dernière partition).
+Pages UI (Dash — actuelle)
+- Sidebar Analyse/Admin, thème Bootstrap sombre (Cyborg), navigation multipage.
+- Dashboard Macro, Signals, Portfolio, Observability (équivalents migrés depuis Streamlit).
+- États vides FR cohérents; sélecteur de date in‑page pour pages partitionnées.
+- Pas de prompts d’exécution de scripts dans les pages (docs/Admin seulement).
+
+Ancienne UI (Streamlit — legacy)
+- Conservée uniquement pour référence durant la migration. Aucune nouvelle fonctionnalité n’y sera implémentée.
+- Scripts `scripts/ui_*` et docs peuvent aider à la maintenance/validation ponctuelle.
 
 Données & Intégrations
 - FRED via MCP + `src/analytics/data_sources/*` internes.

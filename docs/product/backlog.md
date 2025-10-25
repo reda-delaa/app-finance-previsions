@@ -1,5 +1,24 @@
 # Backlog produit (EPICs, User Stories, AC)
 
+## EPIC: Dash — Stabilisation & Migration (Phase 1)
+- US22: En tant qu’utilisateur, je veux que les pages Dash n’échouent jamais en absence de données afin de naviguer sans erreurs.
+  - AC: Plus de « Callback error updating page-content.children »; si `final.parquet`/`forecasts.parquet`/`freshness.json` manquent, la page affiche une carte d’état vide FR; testé avec `make dash-smoke` et navigation manuelle.
+
+- US23: En tant qu’analyste, je veux choisir la partition de date (dt=YYYYMMDD) sur le Dashboard pour comparer des journées différentes.
+  - AC: Sélecteur en page listant `data/forecast/dt=*`; défaut = dernière partition; fallback explicite si aucune partition.
+
+- US24: En tant qu’analyste, je veux filtrer les signaux par horizon (1w/1m/1y) et surligner ma watchlist pour focaliser mon analyse.
+  - AC: Contrôle horizon en-tête; DataTable filtrée; `WATCHLIST` (env ou fichier) mise en évidence via style; export CSV reste disponible.
+
+- US25: En tant que gérant, je veux paramétrer Top‑N et le mode de pondération (égal/proportionnel) pour obtenir une proposition de portefeuille.
+  - AC: Slider N, radio « égal/proportionnel »; calcul des poids et contrôle somme=100%; états vides FR si pas de `final.parquet`.
+
+- US26: En tant qu’admin, je veux piloter l’UI Streamlit depuis la page Observability Dash et visualiser la santé HTTP des deux UIs.
+  - AC: Boutons Start/Restart/Stop connectés aux scripts `scripts/ui_*`; cartes santé HTTP pour Dash (port AF_DASH_PORT) et Streamlit (port AF_UI_PORT); log live tail consultable.
+
+- US27: En tant qu’utilisateur, je veux voir des KPIs Macro (CPI YoY, pente 10Y‑2Y, prob. récession) sur le Dashboard.
+  - AC: Lecture `data/macro/forecast/dt=*/macro_forecast.parquet`; affichage sous le Top‑10; valeurs « n/a » gérées proprement.
+
 ## EPIC: Information Marchés & Macro
 - US1: En tant qu’utilisateur, je veux un tableau de bord macro (inflation, taux, courbes, FRED séries clés) pour comprendre le contexte.
   - AC: Affiche CPI, Core CPI, 10Y, 2Y, 10Y-2Y, Unemployment; graphiques sur 1Y/5Y/Max; liens source.

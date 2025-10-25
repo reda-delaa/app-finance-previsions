@@ -49,8 +49,8 @@ def sidebar() -> html.Div:
 
 
 def _page_registry() -> Dict[str, Callable[[], html.Div]]:
-    # Local imports to avoid hard deps when running in other environments
-    from .pages import dashboard, signals, portfolio, observability
+    # Use absolute imports so running as script works with PYTHONPATH=src
+    from dash_app.pages import dashboard, signals, portfolio, observability
 
     return {
         "/": dashboard.layout,
@@ -78,12 +78,27 @@ app.layout = dbc.Container(
 
 @app.callback(dash.Output("page-content", "children"), dash.Input("url", "pathname"))
 def render_page(pathname: str):
-    pages = _page_registry()
-    fn = pages.get(pathname, pages.get("/"))
-    return fn() if fn else html.Div("Page introuvable.")
+    try:
+        pages = _page_registry()
+        fn = pages.get(pathname, pages.get("/"))
+        if not fn:
+            return html.Div([html.H4("Page introuvable"), html.Small(pathname or "/")])
+        try:
+            return fn()
+        except Exception as e:
+            return html.Div([
+                html.H4("Erreur lors du rendu de la page"),
+                html.Small(str(e)),
+            ])
+    except Exception as e:
+        return html.Div([
+            html.H4("Erreur de navigation"),
+            html.Small(str(e)),
+        ])
 
 
 if __name__ == "__main__":
     port = int(os.getenv("AF_DASH_PORT", "8050"))
-    app.run_server(host="0.0.0.0", port=port, debug=True)
-
+    debug = os.getenv("AF_DASH_DEBUG", "false").lower() == "true"
+    # Dash >=3 replaced run_server with run
+    app.run(host="0.0.0.0", port=port, debug=debug)
