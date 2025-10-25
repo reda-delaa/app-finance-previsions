@@ -79,6 +79,28 @@ def _persist_news_rows(rows: List[Dict[str, Any]], asof: datetime) -> None:
     for c in ["ts","source","title","link","sent","tickers","summary"]:
         if c not in df.columns:
             df[c] = None
+    # basic enrichment: event flags & sector hints by keywords (best-effort)
+    try:
+        def _kw(s):
+            s = str(s or '').lower()
+            return s
+        def _flag(row, words):
+            txt = _kw(row.get('title')) + ' ' + _kw(row.get('summary'))
+            return any(w in txt for w in words)
+        df['flag_earnings'] = df.apply(lambda r: _flag(r, ['earnings','results','guidance','profit','revenue']), axis=1)
+        df['flag_mna'] = df.apply(lambda r: _flag(r, ['merger','acquisition','m&a','buyout','takeover']), axis=1)
+        df['flag_geopolitics'] = df.apply(lambda r: _flag(r, ['geopolitic','sanction','war','conflict','election']), axis=1)
+        df['flag_macro'] = df.apply(lambda r: _flag(r, ['inflation','cpi','jobs','payrolls','fomc','rate hike','rate cut','gdp']), axis=1)
+        def _sector(txt):
+            t = _kw(txt)
+            if any(w in t for w in ['gold','mine','miner','gdx']): return 'gold'
+            if any(w in t for w in ['bank','loan','credit']): return 'financials'
+            if any(w in t for w in ['oil','energy','gas','brent']): return 'energy'
+            if any(w in t for w in ['chip','semiconductor','ai','software','tech']): return 'technology'
+            return None
+        df['sector_hint'] = df.apply(lambda r: _sector(r.get('title')) or _sector(r.get('summary')), axis=1)
+    except Exception:
+        pass
     p = Path("data/news") / f"dt={asof.strftime('%Y-%m-%d')}" / f"news_{asof.strftime('%H%M%S')}.parquet"
     write_parquet(df, p)
 

@@ -1,6 +1,10 @@
 {
-  "date": "2025-10-25T05:28:02.804597Z",
+  "date": "2025-10-25T05:35:11.560629Z",
   "universe": [
+    "AEM.TO",
+    "K.TO",
+    "GDX",
+    "ABX.TO",
     "NGD.TO"
   ],
   "focus": "Gold miners & gold sector if present in universe",
@@ -8,7 +12,38 @@
     "DXY_wow": NaN,
     "UST10Y_bp_wow": -0.9999999999999787
   },
+  "changes": {
+    "macro": {
+      "DXY_d1": 0.0003171367834071681,
+      "UST10Y_bp_d1": 3.999999999999959
+    },
+    "watchlist_moves": []
+  },
   "top_picks_1m": [
+    {
+      "ticker": "AEM.TO",
+      "direction": "up",
+      "confidence": 0.633,
+      "expected_return": 0.041
+    },
+    {
+      "ticker": "K.TO",
+      "direction": "up",
+      "confidence": 0.633,
+      "expected_return": 0.0355
+    },
+    {
+      "ticker": "GDX",
+      "direction": "up",
+      "confidence": 0.633,
+      "expected_return": -0.0045
+    },
+    {
+      "ticker": "ABX.TO",
+      "direction": "up",
+      "confidence": 0.633,
+      "expected_return": -0.0259
+    },
     {
       "ticker": "NGD.TO",
       "direction": "up",

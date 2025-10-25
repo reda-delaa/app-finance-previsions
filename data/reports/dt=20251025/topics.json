@@ -1,5 +1,5 @@
 {
-  "asof": "2025-10-25T05:04:29.298340Z",
+  "asof": "2025-10-25T05:34:49.071102Z",
   "macro": {
     "DXY_wow": NaN,
     "UST10Y_bp_wow": -0.9999999999999787
@@ -12,14 +12,14 @@
     "GDX"
   ],
   "queries": [
-    "1. Focus sur les deltas macro récents (DXY, UST10Y) et leur impact sur l'or.",
-    "2. Surveillance des sociétés minières (NGD.TO, AEM.TO, ABX.TO, K.TO) et du GDX.",
-    "3. Analyse des indicateurs techniques et fondamentaux des actifs liés à l'or.",
-    "4. Identification des risques géopolitiques et économiques affectant l'or.",
-    "5. Évaluation des tendances de sentiment et des actualités sectorielles.",
-    "DXY_wow: non fourni",
-    "UST10Y_bp_wow: -1.0 bp",
-    "Watchlist: NGD.TO, AEM.TO, ABX.TO, K.TO, GDX",
+    "1. Focus sur secteur or/mines avec indicateurs macro récents (DXY, UST10Y).",
+    "2. Watchlist ciblant mines canadiennes (NGD.TO, AEM.TO, ABX.TO, K.TO) et GDX.",
+    "3. Requêtes concises pour actualiser l'analyse macro et sectorielle.",
+    "4. Pas de données récentes sur DXY (wow), baisse modeste des UST10Y.",
+    "5. Priorité aux drivers directs (or, taux réels, dynamique USD).",
+    "Macro : UST10Y -1bp wow (faible mouvement), DXY non fourni.",
+    "Watchlist : Miners (NGD.TO, AEM.TO, ABX.TO, K.TO) + GDX (ETF mines).",
+    "Secteur or : sensible aux taux réels, USD, risque géopolitique.",
     "| Nom   | P (%) |",
     "|---|---|"
   ]

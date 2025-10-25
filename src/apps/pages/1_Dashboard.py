@@ -139,7 +139,7 @@ if rows:
 else:
     st.info("Aucun fichier de prévisions trouvé. Exécutez `python scripts/agent_daily.py` pour générer la journée.")
 
-# Daily brief (if any) and macro KPIs
+# Daily brief (if any) and macro KPIs + changes
 try:
     if chosen:
         brief_path = Path("data/forecast") / chosen / "brief.json"
@@ -156,6 +156,37 @@ try:
                 st.metric("UST10Y bp WoW", f"{macro.get('UST10Y_bp_wow') if macro.get('UST10Y_bp_wow') is not None else 'n/a'}")
             with k3:
                 st.metric("Gold WoW", f"{macro.get('Gold_wow') if macro.get('Gold_wow') is not None else 'n/a'}")
+            # Changes since yesterday (simple text summary)
+            changes = (brief or {}).get('changes') or {}
+            if changes:
+                st.subheader("Qu’est‑ce qui a changé depuis hier ?")
+                # macro d1
+                m = changes.get('macro') or {}
+                bullets = []
+                def pct(v):
+                    try:
+                        return f"{float(v)*100:.2f}%"
+                    except Exception:
+                        return "n/a"
+                def bp(v):
+                    try:
+                        return f"{float(v):.1f} bp"
+                    except Exception:
+                        return "n/a"
+                if 'DXY_d1' in m:
+                    bullets.append(f"Dollar américain: {pct(m.get('DXY_d1'))} sur 1 jour")
+                if 'UST10Y_bp_d1' in m:
+                    bullets.append(f"Taux US 10 ans: {bp(m.get('UST10Y_bp_d1'))} sur 1 jour")
+                if 'Gold_d1' in m:
+                    bullets.append(f"Or: {pct(m.get('Gold_d1'))} sur 1 jour")
+                # watchlist moves
+                w = changes.get('watchlist_moves') or []
+                if w:
+                    top = ", ".join([f"{x['ticker']}: {pct(x['d1'])}" for x in w])
+                    bullets.append(f"Watchlist principaux mouvements (1j): {top}")
+                if bullets:
+                    for b in bullets:
+                        st.write(f"- {b}")
             st.json(brief)
 except Exception:
     pass

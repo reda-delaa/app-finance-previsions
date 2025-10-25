@@ -121,18 +121,23 @@ def main() -> int:
             key=lambda r: ( (1.0 if r.get("direction") == "up" else (-1.0 if r.get("direction") == "down" else 0.0)) * float(r.get("confidence") or 0.0) + 0.5 * float(r.get("expected_return") or 0.0) ),
             reverse=True
         )[:5]
-        # Macro deltas (best-effort): DXY (DTWEXBGS) WoW, 10Y (DGS10) bp WoW, Gold futures GC=F WoW
+        # Macro deltas (best-effort): DXY (DTWEXBGS) d1/ WoW, 10Y (DGS10) bp d1/WoW, Gold futures GC=F d1/WoW
         macro = {}
+        changes = {"macro": {}, "watchlist_moves": []}
         try:
             dxy = get_fred_series("DTWEXBGS")
             if not dxy.empty and len(dxy.index) > 7:
                 macro["DXY_wow"] = float((dxy.iloc[-1, 0] / dxy.iloc[-5, 0]) - 1.0)
+            if not dxy.empty and len(dxy.index) > 1:
+                changes["macro"]["DXY_d1"] = float((dxy.iloc[-1, 0] / dxy.iloc[-2, 0]) - 1.0)
         except Exception:
             pass
         try:
             dgs10 = get_fred_series("DGS10")
             if not dgs10.empty and len(dgs10.index) > 7:
                 macro["UST10Y_bp_wow"] = float((dgs10.iloc[-1, 0] - dgs10.iloc[-5, 0]) * 100.0)
+            if not dgs10.empty and len(dgs10.index) > 1:
+                changes["macro"]["UST10Y_bp_d1"] = float((dgs10.iloc[-1, 0] - dgs10.iloc[-2, 0]) * 100.0)
         except Exception:
             pass
         try:
@@ -142,6 +147,19 @@ def main() -> int:
                 g = get_price_history("GC=F", start=(datetime.utcnow().date().replace(day=1).isoformat()))
             if g is not None and not g.empty and len(g.index) > 5:
                 macro["Gold_wow"] = float((g["Close"].iloc[-1] / g["Close"].iloc[-5]) - 1.0)
+            if g is not None and not g.empty and len(g.index) > 1:
+                changes["macro"]["Gold_d1"] = float((g["Close"].iloc[-1] / g["Close"].iloc[-2]) - 1.0)
+        except Exception:
+            pass
+        # Watchlist 1‑day moves (best-effort)
+        try:
+            for t in [x.strip().upper() for x in (os.getenv("WATCHLIST") or "").split(",") if x.strip()]:
+                ph = get_price_history(t, start=(datetime.utcnow().date().replace(day=max(1, datetime.utcnow().day-7)).isoformat()))
+                if ph is not None and not ph.empty and len(ph.index) > 1:
+                    d1 = float((ph["Close"].iloc[-1] / ph["Close"].iloc[-2]) - 1.0)
+                    changes["watchlist_moves"].append({"ticker": t, "d1": d1})
+            # sort by absolute move and keep top 5
+            changes["watchlist_moves"] = sorted(changes["watchlist_moves"], key=lambda x: abs(x.get("d1") or 0.0), reverse=True)[:5]
         except Exception:
             pass
         brief = {
@@ -149,6 +167,7 @@ def main() -> int:
             "universe": [x.strip().upper() for x in os.getenv("WATCHLIST", "").split(",") if x.strip()] or [r.get("ticker") for r in top_1m],
             "focus": "Gold miners & gold sector if present in universe",
             "macro": macro,
+            "changes": changes,
             "top_picks_1m": [{"ticker": r.get("ticker"), "direction": r.get("direction"), "confidence": r.get("confidence"), "expected_return": r.get("expected_return")} for r in top_1m],
             "notes": [
                 "Scores based on SMA+sentiment baseline; ML+LLM blend to be added.",
