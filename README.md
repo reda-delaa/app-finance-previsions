@@ -163,4 +163,10 @@ pytest -q
 
 ```bash
 PYTHONPATH=src streamlit run src/apps/app.py
+
+## Documentation centrale
+
+- docs/AGENTS_PROMPT.md — prompt cadre central pour tous les agents (à lire en premier)
+- docs/PROGRESS.md — statut, ce qui est fait, ce qui manque, comment lancer
+- docs/README.md — index de la documentation détaillée
 ```
