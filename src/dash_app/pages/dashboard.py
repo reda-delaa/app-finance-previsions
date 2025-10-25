@@ -47,6 +47,52 @@ def _top_final(dt: str | None = None) -> dbc.Card:
         return dbc.Card(dbc.CardBody([html.Small(f"Erreur lecture final: {e}")]))
 
 
+def _macro_kpis(dt: str | None = None) -> dbc.Card:
+    try:
+        base = Path('data/macro/forecast')
+        fp: Path | None = None
+        if dt:
+            cand = base / f'dt={dt}' / 'macro_forecast.parquet'
+            if cand.exists():
+                fp = cand
+        if fp is None:
+            parts = sorted(base.glob('dt=*/macro_forecast.parquet'))
+            if parts:
+                fp = parts[-1]
+        if fp is None or not fp.exists():
+            return dbc.Card([dbc.CardHeader("Macro — KPIs"), dbc.CardBody([html.Small("Aucun macro_forecast.parquet trouvé." )])])
+        df = pd.read_parquet(fp)
+        if df is None or df.empty:
+            return dbc.Card([dbc.CardHeader("Macro — KPIs"), dbc.CardBody([html.Small("macro_forecast.parquet vide.")])])
+
+        # Heuristiques de colonnes
+        def last(col: str):
+            return df[col].dropna().iloc[-1] if col in df.columns and not df[col].dropna().empty else None
+
+        cpi = last('cpi_yoy') or last('CPI_YoY') or last('cpi_yoy_pct')
+        y10 = last('y10') or last('yield_10y')
+        y2 = last('y2') or last('yield_2y')
+        slope = (y10 - y2) if (y10 is not None and y2 is not None) else (last('slope_10y_2y') or last('yc_10y_2y'))
+        rec = last('recession_prob') or last('recession_probability')
+
+        items = []
+        items.append(html.Small(f"CPI YoY: {cpi:.2f}%" if isinstance(cpi, (int, float)) else "CPI YoY: n/a"))
+        items.append(html.Br())
+        if isinstance(slope, (int, float)):
+            items.append(html.Small(f"Pente 10Y-2Y: {slope:.2f} pp"))
+        else:
+            items.append(html.Small("Pente 10Y-2Y: n/a"))
+        items.append(html.Br())
+        if isinstance(rec, (int, float)):
+            items.append(html.Small(f"Prob. récession (12m): {rec:.0%}"))
+        else:
+            items.append(html.Small("Prob. récession (12m): n/a"))
+
+        return dbc.Card([dbc.CardHeader("Macro — KPIs"), dbc.CardBody(items)])
+    except Exception as e:
+        return dbc.Card([dbc.CardHeader("Macro — KPIs"), dbc.CardBody([html.Small(f"Erreur macro: {e}")])])
+
+
 def layout():
     # Optional alerts badge (from latest quality report)
     badge = None
@@ -89,7 +135,8 @@ def layout():
     return html.Div([
         header,
         controls,
-        html.Div(id='dash-top-final', children=_top_final(default_dt)),
+        html.Div(id='dash-top-final', children=_top_final(default_dt), className="mb-3"),
+        _macro_kpis(default_dt),
     ])
 
 
