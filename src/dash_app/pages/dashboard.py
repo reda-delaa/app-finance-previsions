@@ -130,6 +130,10 @@ def layout():
                 style={"minWidth": "220px"},
             )
         ], md=4),
+        dbc.Col([
+            html.Small("Watchlist (AAPL,MSFT,…) ", className="me-2"),
+            dcc.Input(id='dash-watchlist', type='text', placeholder='ex: AAPL,MSFT', debounce=True, style={"minWidth":"240px"})
+        ], md=4),
     ], className="mb-3")
 
     return html.Div([
@@ -140,9 +144,38 @@ def layout():
     ])
 
 
-@dash.callback(dash.Output('dash-top-final', 'children'), dash.Input('dash-date-select', 'value'))
-def on_dt_change(dt):
+def _parse_watchlist(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    items = [x.strip().upper() for x in str(raw).replace('\n', ',').split(',') if x.strip()]
+    return list(dict.fromkeys(items))
+
+
+@dash.callback(dash.Output('dash-top-final', 'children'), dash.Input('dash-date-select', 'value'), dash.Input('dash-watchlist','value'))
+def on_dt_change(dt, wl):
     try:
-        return _top_final(dt)
+        card = _top_final(dt)
+        # if watchlist provided, filter table content by tickers (render-level)
+        if isinstance(card, dbc.Card) and wl:
+            watch = set(_parse_watchlist(wl))
+            # attempt to rebuild filtered table from source parquet
+            try:
+                target = None
+                if dt:
+                    target = Path('data/forecast') / f'dt={dt}' / 'final.parquet'
+                else:
+                    parts = sorted(Path('data/forecast').glob('dt=*/final.parquet'))
+                    if parts:
+                        target = parts[-1]
+                if target and target.exists():
+                    df = pd.read_parquet(target)
+                    view = df[(df.get('horizon')=='1m') & (df.get('ticker').isin(watch))].sort_values('final_score', ascending=False)
+                    cols_ok = {'ticker','final_score'}.issubset(view.columns)
+                    if cols_ok and not view.empty:
+                        table = dbc.Table.from_dataframe(view[['ticker','final_score']].reset_index(drop=True), striped=True, bordered=False, hover=True, size='sm')
+                        return dbc.Card([dbc.CardHeader("Top (watchlist, 1m)"), dbc.CardBody(table)])
+            except Exception:
+                pass
+        return card
     except Exception as e:
         return dbc.Card(dbc.CardBody([html.Small(f"Erreur Top Final: {e}")]))
