@@ -170,7 +170,7 @@ PYTHONPATH=src streamlit run src/apps/app.py
 - docs/PROGRESS.md — statut, ce qui est fait, ce qui manque, comment lancer
 - docs/README.md — index de la documentation détaillée
 ```
-## DOC for QA Agent 
+## DOC for QA/PO/MANAGER Agent 
 
 ### Procédure détaillée pour tester l’UI et valider les dernières modifications
 

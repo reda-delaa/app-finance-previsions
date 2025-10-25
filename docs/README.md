@@ -18,6 +18,7 @@ Docs Map
 - Architecture: `architecture/vision.md`, `architecture/c4.md`, `architecture/refactor_plan.md`.
 - UI: `ui/ui_audit.md` — audit, decisions, and action plan.
 - Progress: `PROGRESS.md` — what’s done, what’s next, run discipline.
+- QA: `qa/ATLAS_QA.md` — procedure for ATLAS to verify commits, restart UI, test pages, and report.
 
 Principles
 - No central orchestrator in runtime UI. Pipelines run via `Makefile`/cron; UI reads latest partitions under `data/**/dt=YYYYMMDD/`.
