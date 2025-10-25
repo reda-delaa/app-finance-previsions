@@ -2,26 +2,27 @@ from pathlib import Path
 import sys as _sys
 import json
 import streamlit as st
+from ui.shell import page_header, page_footer
 
 SRC = Path(__file__).resolve().parents[2]
 if str(SRC) not in _sys.path:
     _sys.path.insert(0, str(SRC))
 
 st.set_page_config(page_title="Reports — Finance Agent", layout="wide")
-st.title("📝 Reports — Investigations & Summaries")
+page_header(active="admin")
+st.subheader("📝 Reports — Investigations & Summaries")
 
 with st.sidebar:
     st.header("Source")
     base = Path("data/reports")
     dates = sorted([p.name for p in base.glob("dt=*")], reverse=True)
-    chosen = st.selectbox("Date folder", dates, index=0 if dates else None)
-    refresh = st.button("Refresh")
+    chosen = st.selectbox("Dossier date", dates, index=0 if dates else None)
 
 if chosen:
     ddir = Path("data/reports") / chosen
     files = sorted(list(ddir.glob("*.json")))
     if not files:
-        st.info("No reports for this date.")
+        st.info("Aucun rapport pour cette date.")
     else:
         for f in files:
             st.subheader(f.name)
@@ -63,8 +64,10 @@ if chosen:
                         st.metric("Taux US 10 ans (écart sur 1 semaine)", _fmt_bp(macro.get('UST10Y_bp_wow')))
                     if any(_is_nan(v) or v is None for v in [macro.get('DXY_wow'), macro.get('UST10Y_bp_wow')]):
                         st.caption("Certaines données macro sont indisponibles aujourd'hui (week‑end/jour férié). Valeurs manquantes affichées en 'n/a'.")
-                st.json(obj)
+                with st.expander("Détails (JSON)"):
+                    st.json(obj)
             except Exception as e:
                 st.warning(f"Failed to read {f.name}: {e}")
 else:
-    st.info("Select a date to view investigation reports.")
+    st.info("Sélectionnez une date pour afficher les rapports d'investigation.")
+page_footer()
