@@ -18,6 +18,28 @@ st.set_page_config(page_title="Dashboard — Finance Agent", layout="wide")
 st.title("📊 Dashboard — Résumé & Picks")
 st.caption("Uses Parquet/DuckDB if available for fast scanning; falls back to JSON.")
 
+# Alerts badge (latest Quality report error/warn counts)
+try:
+    from pathlib import Path as _P
+    import json as _json
+    qrep = sorted(_P('data/quality').glob('dt=*/report.json'))
+    if qrep:
+        rep = _json.loads(_P(qrep[-1]).read_text(encoding='utf-8'))
+        def _count(rep, sev):
+            cnt = 0
+            for sec in ['news','macro','prices','forecasts','features','events','freshness']:
+                s = rep.get(sec) or {}
+                for it in (s.get('issues') or []):
+                    if str(it.get('sev','')).lower() == sev:
+                        cnt += 1
+            return cnt
+        err_n = _count(rep, 'error'); warn_n = _count(rep, 'warn')
+        c1, c2 = st.columns(2)
+        with c1: st.metric("Alerts — Errors", err_n)
+        with c2: st.metric("Alerts — Warnings", warn_n)
+except Exception:
+    pass
+
 with st.sidebar:
     st.header("Source")
     base = Path("data/forecast")

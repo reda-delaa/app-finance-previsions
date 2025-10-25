@@ -35,6 +35,10 @@ g4f-refresh:
 g4f-refresh-official:
 	G4F_SOURCE=official PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.g4f_model_watcher --refresh --limit $(G4F_LIMIT)
 
+.PHONY: g4f-fetch-official
+g4f-fetch-official:
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/fetch_official_models.py
+
 llm-agents:
 	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_llm_agents.py
 
@@ -76,3 +80,7 @@ risk-monitor:
 
 memos:
 	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_memos.py
+
+.PHONY: backfill-prices
+backfill-prices:
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/backfill_prices.py

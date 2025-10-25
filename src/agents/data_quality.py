@@ -206,9 +206,55 @@ def scan_all() -> Dict[str, Any]:
         out['freshness'] = {'ok': len(freshness['issues'])==0, 'issues': freshness['issues']}
     except Exception:
         out['freshness'] = {'ok': True, 'issues': []}
+    # Coverage check (≥5y)
+    try:
+        out['coverage'] = scan_coverage(min_years=int(os.getenv('COVERAGE_MIN_YEARS','5')))
+    except Exception:
+        out['coverage'] = {'ok': True, 'issues': []}
     ok = all(v.get('ok', False) for v in out.values() if isinstance(v, dict))
     out['ok'] = ok
     return out
+
+def scan_coverage(min_years: int = 5) -> Dict[str, Any]:
+    """Check that prices and selected macro series cover at least min_years."""
+    issues = []
+    import pandas as pd
+    min_days = int(min_years * 365 * 0.98)  # allow small slack
+    today = pd.Timestamp.utcnow().normalize()
+    # prices
+    for p in Path('data/prices').glob('ticker=*/prices.parquet'):
+        try:
+            df = pd.read_parquet(p)
+            col_date = 'date' if 'date' in df.columns else None
+            if col_date:
+                df[col_date] = pd.to_datetime(df[col_date], errors='coerce')
+                dmin, dmax = df[col_date].min(), df[col_date].max()
+                if pd.isna(dmin) or pd.isna(dmax):
+                    continue
+                span = (dmax - dmin).days
+                if span < min_days:
+                    issues.append({'sev':'warn','msg': f'coverage< {min_years}y for {p.parent.name} ({span} days)'})
+        except Exception:
+            continue
+    # macro core series
+    core = ['DGS10','DGS2','CPIAUCSL']
+    for sid in core:
+        sp = Path('data/macro')/f'series_id={sid}'/'series.parquet'
+        if not sp.exists():
+            issues.append({'sev':'warn','msg': f'macro series missing: {sid}'})
+            continue
+        try:
+            df = pd.read_parquet(sp)
+            col_date = 'date' if 'date' in df.columns else None
+            if col_date:
+                df[col_date] = pd.to_datetime(df[col_date], errors='coerce')
+                dmin, dmax = df[col_date].min(), df[col_date].max()
+                span = (dmax - dmin).days if dmin is not None and dmax is not None else 0
+                if span < min_days:
+                    issues.append({'sev':'warn','msg': f'macro {sid} coverage< {min_years}y ({span} days)'})
+        except Exception:
+            continue
+    return {'ok': len([i for i in issues if i.get('sev')=='error'])==0, 'issues': issues}
 
 
 def write_report(obj: Dict[str, Any]) -> Path:

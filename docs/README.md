@@ -5,3 +5,4 @@ Project Docs
 - See `architecture/refactor_plan.md` for the step-by-step refactor roadmap.
 - See `ui/ui_audit.md` for the UI audit and redesign plan.
 - See `runbook/codex_playbook.md` to orchestrate MCP-powered analysis and delivery.
+ - See `PROGRESS.md` for current status (what's done, what's next).
