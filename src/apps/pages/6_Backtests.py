@@ -37,7 +37,7 @@ def _score_df(h):
 
 if run:
     if not have_files("data/forecast/dt=*/forecasts.parquet"):
-        st.warning("No forecasts parquet found. Generate with scripts/agent_daily.py first.")
+        st.info("Aucune prévision disponible pour la période. Consultez Admin → Agents Status pour l'état du pipeline.")
     else:
         df = _score_df(horizon)
         df = df[(df["dt"] >= pd.to_datetime(start_dt)) & (df["dt"] <= pd.to_datetime(end_dt))]

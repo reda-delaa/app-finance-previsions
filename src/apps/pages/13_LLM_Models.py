@@ -37,7 +37,6 @@ if p.exists():
         rows = rows.sort_values(by=["ok","pass_rate","latency_s"], ascending=[False, False, True])
         st.dataframe(rows, use_container_width=True)
     else:
-        st.info("La liste est vide. Lancez un test rapide.")
+        st.info("La liste est vide. Utilisez le bouton 'Tester les modèles (rapide)'.")
 else:
-    st.info("Aucun fichier working.json trouvé. Lancez un test rapide.")
-
+    st.info("Aucun fichier working.json trouvé. Utilisez le bouton 'Tester les modèles (rapide)'.")

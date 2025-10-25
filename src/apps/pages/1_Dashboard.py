@@ -326,7 +326,7 @@ if rows:
     ])
     st.dataframe(df, use_container_width=True)
 else:
-    st.info("Aucun fichier de prévisions trouvé. Exécutez `python scripts/agent_daily.py` pour générer la journée.")
+    st.info("Aucune prévision disponible pour cette date. Consultez Admin → Agents Status pour l'état du pipeline ou réessayez plus tard.")
 
 # Daily brief (if any) and macro KPIs + changes
 try:
