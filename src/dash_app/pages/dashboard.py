@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import pandas as pd
 import dash_bootstrap_components as dbc
 from dash import html
@@ -24,8 +25,24 @@ def _top_final() -> dbc.Card:
 
 
 def layout():
-    return html.Div([
-        html.H3("Dashboard — Top picks"),
-        _top_final(),
-    ])
+    # Optional alerts badge (from latest quality report)
+    badge = None
+    try:
+        parts = sorted(Path('data/quality').glob('dt=*/report.json'))
+        if parts:
+            rep = json.loads(parts[-1].read_text(encoding='utf-8'))
+            def _count(rep, sev):
+                cnt = 0
+                for sec in ['news','macro','prices','forecasts','features','events','freshness']:
+                    s = rep.get(sec) or {}
+                    for it in (s.get('issues') or []):
+                        if str(it.get('sev','')).lower() == sev:
+                            cnt += 1
+                return cnt
+            errs = _count(rep, 'error'); warns = _count(rep, 'warn')
+            badge = dbc.Badge(f"Errors: {errs}  Warnings: {warns}", color=("danger" if errs else ("warning" if warns else "success")), className="ms-2")
+    except Exception:
+        pass
 
+    header = html.Div([html.H3("Dashboard — Top picks"), badge] if badge else [html.H3("Dashboard — Top picks")])
+    return html.Div([header, _top_final()])

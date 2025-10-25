@@ -137,6 +137,10 @@ ui-logs:
 dash-start:
 	AF_DASH_PORT=$${AF_DASH_PORT-8050} PYTHONPATH=$$PWD/src $(PYTHON) src/dash_app/app.py
 
+.PHONY: dash-smoke
+dash-smoke:
+	PYTHONPATH=$$PWD/src $(PYTHON) ops/ui/dash_smoke.py
+
 .PHONY: ui-watch
 ui-watch:
 	AF_UI_PORT=$${AF_UI_PORT-5555} AF_UI_WATCH_INTERVAL=$${AF_UI_WATCH_INTERVAL-5} bash scripts/ui_watch.sh
