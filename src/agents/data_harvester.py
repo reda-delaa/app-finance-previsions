@@ -490,6 +490,29 @@ def run_once() -> Dict[str, Any]:
                 _ = backfill_news(years=1.0, topic_queries=qs[:3])
     except Exception as e:
         out["actions"].append({"topics_error": str(e)})
+    # Optionally refresh g4f working models on schedule
+    try:
+        refresh_hours = int(os.getenv("G4F_REFRESH_HOURS", "6"))
+        last = st.get("last_runs", {}).get("last_g4f_refresh_iso")
+        do_refresh = True
+        if last:
+            from datetime import datetime, timezone
+            last_dt = datetime.fromisoformat(last.replace("Z","+00:00"))
+            age_h = (datetime.now(timezone.utc) - last_dt).total_seconds()/3600.0
+            do_refresh = age_h >= max(1, refresh_hours)
+        if do_refresh and os.getenv("G4F_AUTO_REFRESH","1") == "1":
+            try:
+                from agents.g4f_model_watcher import refresh as _g4f_refresh
+                p = _g4f_refresh(limit=int(os.getenv("G4F_TEST_LIMIT","8")), refresh_verified=True)
+                out["actions"].append({"g4f_models_refresh": str(p)})
+                from datetime import datetime, timezone
+                st.setdefault("last_runs", {})["last_g4f_refresh_iso"] = datetime.now(timezone.utc).isoformat()
+            except Exception as ie:
+                out["actions"].append({"g4f_models_refresh_error": str(ie)})
+        else:
+            out["actions"].append({"g4f_models_refresh": "skipped"})
+    except Exception as e:
+        out["actions"].append({"g4f_refresh_error": str(e)})
     st["last_runs"]["once"] = out
     _save_state(st)
     return out

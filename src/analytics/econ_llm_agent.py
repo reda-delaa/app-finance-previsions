@@ -360,7 +360,20 @@ class EconomicAnalyst:
         char_budget: int = CHAR_BUDGET,
     ):
         env_models = self._load_models_from_env()
-        self.model_candidates = env_models or model_candidates or DEFAULT_MODEL_CANDIDATES
+        base = env_models or model_candidates or DEFAULT_MODEL_CANDIDATES
+        # Overlay dynamic working models if available (fresh within max age)
+        try:
+            if os.getenv("ECON_AGENT_DYNAMIC_MODELS", "1") == "1":
+                from agents.g4f_model_watcher import load_working_models
+                max_age_h = int(os.getenv("G4F_WORKING_MAX_AGE_H", "24"))
+                dyn = load_working_models(max_age_hours=max_age_h)
+                if dyn:
+                    # Prefer dynamic ordering; keep only intersection to ensure compatibility
+                    dyn_set = set(dyn)
+                    base = [m for m in dyn if m in dyn_set] + [m for m in base if m not in dyn_set]
+        except Exception:
+            pass
+        self.model_candidates = base
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.timeout = timeout
