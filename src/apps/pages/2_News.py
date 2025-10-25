@@ -28,6 +28,15 @@ with st.sidebar:
     use_parquet = st.checkbox("Utiliser données Parquet si présentes", value=True)
     days_back = st.slider("Jours à charger", min_value=1, max_value=365, value=30, step=1)
     kw_filter = st.text_input("Mot-clé filtre (titre/summary)", value="")
+    st.subheader("Filtres avancés")
+    colf1, colf2 = st.columns(2)
+    with colf1:
+        evt_earn = st.checkbox("Résultats (earnings)")
+        evt_mna = st.checkbox("Fusions/Acquisitions (M&A)")
+    with colf2:
+        evt_geo = st.checkbox("Géopolitique")
+        evt_macro = st.checkbox("Macro (CPI, emploi, taux)")
+    sector = st.selectbox("Secteur (indice)", ["(Tous)", "gold", "energy", "financials", "technology"], index=0)
     run = st.button("Agrèger & Résumer")
 
 if run:
@@ -60,6 +69,26 @@ if run:
                         except Exception:
                             return False
                     dfa = dfa[(dfa['title'].apply(_contains)) | (dfa['summary'].apply(_contains))]
+                # advanced filters
+                def _ensure(df, col, default=False):
+                    if col not in df.columns:
+                        df[col] = default
+                    return df
+                dfa = _ensure(dfa, 'flag_earnings')
+                dfa = _ensure(dfa, 'flag_mna')
+                dfa = _ensure(dfa, 'flag_geopolitics')
+                dfa = _ensure(dfa, 'flag_macro')
+                dfa = _ensure(dfa, 'sector_hint', None)
+                if evt_earn:
+                    dfa = dfa[dfa['flag_earnings'] == True]
+                if evt_mna:
+                    dfa = dfa[dfa['flag_mna'] == True]
+                if evt_geo:
+                    dfa = dfa[dfa['flag_geopolitics'] == True]
+                if evt_macro:
+                    dfa = dfa[dfa['flag_macro'] == True]
+                if sector != "(Tous)":
+                    dfa = dfa[(dfa['sector_hint'].fillna('') == sector)]
                 news = dfa.to_dict(orient='records')
         except Exception:
             pass
@@ -71,7 +100,36 @@ if run:
     st.write(f"Articles agrégés: {len(news)}")
     if news:
         df = pd.DataFrame(news)
-        st.dataframe(df[[c for c in ["ts","source","title","sent","tickers","link"] if c in df.columns]], use_container_width=True)
+        # Ensure enrichment columns exist for display
+        for c, default in (
+            ("flag_earnings", False),
+            ("flag_mna", False),
+            ("flag_geopolitics", False),
+            ("flag_macro", False),
+            ("sector_hint", None),
+        ):
+            if c not in df.columns:
+                df[c] = default
+        # Small header metrics
+        colm1, colm2, colm3, colm4, colm5 = st.columns(5)
+        with colm1:
+            st.metric("Résultats (earnings)", int(df["flag_earnings"].astype(bool).sum()))
+        with colm2:
+            st.metric("Fusions/Acquisitions", int(df["flag_mna"].astype(bool).sum()))
+        with colm3:
+            st.metric("Géopolitique", int(df["flag_geopolitics"].astype(bool).sum()))
+        with colm4:
+            st.metric("Macro (CPI, emploi, taux)", int(df["flag_macro"].astype(bool).sum()))
+        with colm5:
+            top_sector = (df["sector_hint"].value_counts(dropna=True).head(1).index.tolist() or ["—"])[0]
+            st.metric("Secteur dominant", str(top_sector or "—"))
+        # Display dataframe with event/sector columns
+        shown_cols = [c for c in [
+            "ts","source","title","sent","tickers","sector_hint",
+            "flag_earnings","flag_mna","flag_geopolitics","flag_macro","link"
+        ] if c in df.columns]
+        st.dataframe(df[shown_cols], use_container_width=True)
+        st.caption("Légende: • Résultats = publications financières • Fusions/Acquisitions = M&A • Géopolitique = conflits/sanctions/élections • Macro = inflation/emploi/Fed")
         with st.spinner("Synthèse IA..."):
             summ = summarize_news(news)
         st.subheader("Synthèse")

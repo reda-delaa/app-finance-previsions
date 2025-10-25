@@ -468,6 +468,19 @@ def run_once() -> Dict[str, Any]:
             out["actions"].append({"investigation": bool(rep.get("answer"))})
     except Exception as e:
         out["actions"].append({"investigation_error": str(e)})
+    # Write upcoming macro events (heuristic, user-friendly labels)
+    try:
+        days_ahead = int(os.getenv("EVENTS_DAYS_AHEAD","14"))
+        evts = generate_upcoming_events(days_ahead=days_ahead)
+        if evts:
+            from datetime import datetime as _dt2
+            evdir = Path("data/events") / f"dt={_dt2.utcnow().strftime('%Y%m%d')}"
+            evdir.mkdir(parents=True, exist_ok=True)
+            payload = {"asof": _iso(), "days_ahead": days_ahead, "events": evts}
+            (evdir / "events.json").write_text(json.dumps(_clean_json(payload), ensure_ascii=False, indent=2), encoding="utf-8")
+        out["actions"].append({"events": len(evts) if evts else 0})
+    except Exception as e:
+        out["actions"].append({"events_error": str(e)})
     try:
         if os.getenv("DO_DISCOVER_TOPICS","1") == "1":
             qs = discover_topics_via_llm(watchlist)
