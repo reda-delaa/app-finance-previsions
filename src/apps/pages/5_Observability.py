@@ -33,7 +33,9 @@ try:
     import json as _json
     import time as _time
     port = os.getenv("AF_UI_PORT", "5555")
-    logdir = Path('logs/ui')
+    # Repo root = <repo>
+    repo_root = Path(__file__).resolve().parents[3]
+    logdir = repo_root / 'logs' / 'ui'
     pidfile = logdir / f'streamlit_{port}.pid'
     logfile = logdir / f'streamlit_{port}.log'
     pid = None
@@ -48,10 +50,24 @@ try:
                 alive = True
         except Exception:
             alive = False
-    c1,c2,c3 = st.columns(3)
+    # HTTP probe
+    http_ok = False
+    http_ms = None
+    try:
+        import time, requests
+        t0 = time.perf_counter();
+        r = requests.get(f"http://127.0.0.1:{port}", timeout=1.0)
+        http_ok = (r.status_code == 200)
+        http_ms = int((time.perf_counter() - t0) * 1000)
+    except Exception:
+        http_ok = False
+        http_ms = None
+
+    c1,c2,c3,c4 = st.columns(4)
     with c1: st.metric("Port UI", port)
     with c2: st.metric("Process vivant", "Oui" if alive else "Non")
     with c3: st.metric("PID", str(pid or '—'))
+    with c4: st.metric("HTTP", ("200" if http_ok else "KO") + (f" ({http_ms} ms)" if http_ms is not None else ""))
     if logfile.exists():
         st.caption(f"Dernières lignes du log ({logfile}):")
         try:
@@ -78,7 +94,7 @@ with st.expander("Redémarrer l'interface (arrière‑plan)", expanded=False):
                 try:
                     env = dict(**os.environ)
                     env.setdefault("AF_UI_PORT", os.getenv("AF_UI_PORT", "5555"))
-                    root = Path(__file__).resolve().parents[2]
+                    root = Path(__file__).resolve().parents[3]
                     script = str(root/"scripts"/"ui_restart_bg.sh")
                     out = subprocess.run(["bash", script], capture_output=True, text=True, env=env, timeout=45)
                     st.info("Redémarrage demandé. L'UI peut se couper puis revenir; rechargez cette page après 2–3s.")
@@ -104,7 +120,7 @@ with cols[0]:
                 try:
                     env = dict(**os.environ)
                     env.setdefault("AF_UI_PORT", os.getenv("AF_UI_PORT", "5555"))
-                    root = Path(__file__).resolve().parents[2]
+                    root = Path(__file__).resolve().parents[3]
                     script = str(root/"scripts"/"ui_start_bg.sh")
                     out = subprocess.run(["bash", script], capture_output=True, text=True, env=env, timeout=45)
                     st.info("Démarrage demandé. L'UI devrait être disponible sous peu.")
@@ -126,7 +142,7 @@ with cols[1]:
                 st.warning("Cochez la case de confirmation avant d'arrêter.")
             else:
                 try:
-                    root = Path(__file__).resolve().parents[2]
+                    root = Path(__file__).resolve().parents[3]
                     script = str(root/"scripts"/"ui_stop.sh")
                     out = subprocess.run(["bash", script], capture_output=True, text=True, timeout=30)
                     st.info("Arrêt demandé.")
