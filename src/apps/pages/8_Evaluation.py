@@ -78,6 +78,7 @@ if run:
             df['score'] = _score(df)
             details = []
             basket = []
+            daily_perf = []
             for d, sdf in df.groupby(df['dt'].dt.date):
                 sdf = sdf.sort_values('score', ascending=False).head(top_n)
                 rets = []
@@ -94,7 +95,9 @@ if run:
                         'realized_return': float(rr),
                     })
                 if rets:
-                    basket.append(np.mean(rets))
+                    avg = float(np.mean(rets))
+                    basket.append(avg)
+                    daily_perf.append({'dt': str(d), 'mean_return': avg})
             if basket:
                 s = pd.Series(basket)
                 sharpe = float(s.mean()/s.std(ddof=1)) if s.std(ddof=1) and len(s)>1 else 0.0
@@ -106,12 +109,49 @@ if run:
                     'stdev': float(s.std(ddof=1)) if len(s)>1 else 0.0,
                     'sharpe_like': sharpe,
                 })
+                # Friendly narrative
+                try:
+                    perf_df = pd.DataFrame(daily_perf)
+                    cum_val = None
+                    if not perf_df.empty:
+                        perf_df['dt'] = pd.to_datetime(perf_df['dt'], errors='coerce')
+                        perf_df = perf_df.sort_values('dt')
+                        perf_df['cum_return'] = (1.0 + perf_df['mean_return']).cumprod() - 1.0
+                        if not perf_df['cum_return'].empty:
+                            cum_val = float(perf_df['cum_return'].iloc[-1])
+                    st.markdown(
+                        f"En clair: sur {int(s.count())} jours, un panier quotidien égal‑pondéré des {top_n} meilleures idées a généré en moyenne {float(s.mean())*100:.2f}% par jour, pour une médiane de {float(s.median())*100:.2f}% et une variabilité (écart‑type) de {(float(s.std(ddof=1)) if len(s)>1 else 0.0)*100:.2f}%. "
+                        + (f"Le cumul sur la période atteint {cum_val*100:.2f}% (ré‑investi chaque jour)." if cum_val is not None else "")
+                    )
+                except Exception:
+                    pass
                 st.subheader("Details")
-                st.dataframe(pd.DataFrame(details), use_container_width=True)
+                det_df = pd.DataFrame(details)
+                st.dataframe(det_df, use_container_width=True)
+                # CSV export
+                try:
+                    csv_bytes = det_df.to_csv(index=False).encode('utf-8')
+                    st.download_button("Télécharger les détails (CSV)", data=csv_bytes, file_name=f"eval_details_{horizon}.csv", mime="text/csv")
+                except Exception:
+                    pass
+                # Daily cumulative performance chart
+                try:
+                    if 'perf_df' not in locals():
+                        perf_df = pd.DataFrame(daily_perf)
+                        if not perf_df.empty:
+                            perf_df['dt'] = pd.to_datetime(perf_df['dt'], errors='coerce')
+                            perf_df = perf_df.sort_values('dt')
+                            perf_df['cum_return'] = (1.0 + perf_df['mean_return']).cumprod() - 1.0
+                    if not perf_df.empty:
+                        st.subheader("Cumulative Performance (Top N basket)")
+                        perf_plot = perf_df.set_index('dt')[['cum_return']]
+                        st.area_chart(perf_plot)
+                except Exception:
+                    pass
                 # Calibration (probability-of-up proxy)
                 try:
                     st.subheader("Confidence Calibration (simple)")
-                    det = pd.DataFrame(details)
+                    det = det_df.copy()
                     if not det.empty:
                         # Predicted up probability proxy
                         det['p_up'] = np.where(det['direction']=='up', det['confidence'], 1.0 - det['confidence'])
