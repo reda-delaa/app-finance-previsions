@@ -48,3 +48,19 @@ from pathlib import Path
 p = merge_from_working_txt(Path('data/llm/probe/working_results.txt'))
 print('Updated:', p)
 PY
+
+.PHONY: macro-regime fuse-forecasts factory-run
+
+macro-regime:
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_macro_regime.py
+
+fuse-forecasts:
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/fuse_forecasts.py
+
+factory-run:
+	# Sequential, no orchestrator
+	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.data_harvester --once || true
+	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.g4f_model_watcher --refresh --limit $${G4F_LIMIT-8} || true
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_llm_agents.py || true
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_macro_regime.py || true
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/fuse_forecasts.py || true
