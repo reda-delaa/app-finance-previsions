@@ -118,6 +118,19 @@ ui-restart:
 	$(MAKE) ui-stop || true
 	AF_UI_PORT=$${AF_UI_PORT-5555} bash scripts/ui_start.sh
 
+.PHONY: ui-start-bg ui-restart-bg ui-status ui-logs
+ui-start-bg:
+	AF_UI_PORT=$${AF_UI_PORT-5555} bash scripts/ui_start_bg.sh
+
+ui-restart-bg:
+	AF_UI_PORT=$${AF_UI_PORT-5555} bash scripts/ui_restart_bg.sh
+
+ui-status:
+	AF_UI_PORT=$${AF_UI_PORT-5555} bash scripts/ui_status.sh
+
+ui-logs:
+	tail -f logs/ui/streamlit_$${AF_UI_PORT-5555}.log
+
 .PHONY: ui-watch
 ui-watch:
 	AF_UI_PORT=$${AF_UI_PORT-5555} AF_UI_WATCH_INTERVAL=$${AF_UI_WATCH_INTERVAL-5} bash scripts/ui_watch.sh
