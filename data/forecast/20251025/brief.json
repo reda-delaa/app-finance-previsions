@@ -1,0 +1,23 @@
+{
+  "date": "2025-10-25T05:21:04.550875Z",
+  "universe": [
+    "NGD.TO"
+  ],
+  "focus": "Gold miners & gold sector if present in universe",
+  "macro": {
+    "DXY_wow": NaN,
+    "UST10Y_bp_wow": -0.9999999999999787
+  },
+  "top_picks_1m": [
+    {
+      "ticker": "NGD.TO",
+      "direction": "up",
+      "confidence": 0.633,
+      "expected_return": -0.0453
+    }
+  ],
+  "notes": [
+    "Scores based on SMA+sentiment baseline; ML+LLM blend to be added.",
+    "Use Deep Dive for per-ticker details and news context."
+  ]
+}

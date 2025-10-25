@@ -253,10 +253,10 @@ def _score_badge(v: float) -> str:
 def _component_fmt(v) -> str:
     try:
         if v is None or (isinstance(v, float) and not (v == v)):
-            return "n/a"
+            return "valeur non trouvée"
         return f"{float(v):+.3f}"
     except Exception:
-        return "n/a"
+        return "valeur non trouvée"
 
 def render_macro_summary_block(macro_feats: dict):
     st.markdown("### 🔮 Synthèse macro (scores normalisés)")

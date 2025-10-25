@@ -1,0 +1,26 @@
+{
+  "asof": "2025-10-25T05:04:29.298340Z",
+  "macro": {
+    "DXY_wow": NaN,
+    "UST10Y_bp_wow": -0.9999999999999787
+  },
+  "watchlist": [
+    "NGD.TO",
+    "AEM.TO",
+    "ABX.TO",
+    "K.TO",
+    "GDX"
+  ],
+  "queries": [
+    "1. Focus sur les deltas macro récents (DXY, UST10Y) et leur impact sur l'or.",
+    "2. Surveillance des sociétés minières (NGD.TO, AEM.TO, ABX.TO, K.TO) et du GDX.",
+    "3. Analyse des indicateurs techniques et fondamentaux des actifs liés à l'or.",
+    "4. Identification des risques géopolitiques et économiques affectant l'or.",
+    "5. Évaluation des tendances de sentiment et des actualités sectorielles.",
+    "DXY_wow: non fourni",
+    "UST10Y_bp_wow: -1.0 bp",
+    "Watchlist: NGD.TO, AEM.TO, ABX.TO, K.TO, GDX",
+    "| Nom   | P (%) |",
+    "|---|---|"
+  ]
+}

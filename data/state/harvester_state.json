@@ -1,0 +1,24 @@
+{
+  "last_runs": {
+    "once": {
+      "asof": "2025-10-25T05:02:19.242126Z",
+      "actions": [
+        {
+          "news_recent": 0
+        },
+        {
+          "macro_updated": 13
+        },
+        {
+          "prices_funda": 5
+        },
+        {
+          "investigation": true
+        },
+        {
+          "topics": 10
+        }
+      ]
+    }
+  }
+}

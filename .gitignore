@@ -36,3 +36,7 @@ credentials.json
 *.key
 *.pem
 *.p12
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

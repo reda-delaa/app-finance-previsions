@@ -18,3 +18,5 @@ vaderSentiment>=3.3.2
 feedparser>=6.0.10
 g4f>=0.3.0
 loguru>=0.7.0
+duckdb>=1.1.3
+pyarrow>=17.0.0
