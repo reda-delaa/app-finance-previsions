@@ -31,6 +31,10 @@ G4F_LIMIT ?= 8
 g4f-refresh:
 	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.g4f_model_watcher --refresh --limit $(G4F_LIMIT)
 
+.PHONY: g4f-refresh-official
+g4f-refresh-official:
+	G4F_SOURCE=official PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.g4f_model_watcher --refresh --limit $(G4F_LIMIT)
+
 llm-agents:
 	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_llm_agents.py
 

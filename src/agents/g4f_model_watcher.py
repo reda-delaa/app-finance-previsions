@@ -34,6 +34,7 @@ class ModelProbe:
     provider: Optional[str]
     latency_s: Optional[float]
     pass_rate: Optional[float] = None
+    source: Optional[str] = None  # 'verified' | 'official' | None
     tested_at: str = _now_iso()
 
 
@@ -77,6 +78,65 @@ def _verified_candidates(limit: int = 12, refresh: bool = True) -> List[Dict[str
         return [{"model": m, "pass_rate": None, "hint": None} for m in _static_candidates()[:limit]]
 
 
+def _official_candidates(limit: int = 50) -> List[Dict[str, Any]]:
+    """Return a best-effort list of 'official' models.
+
+    Priority:
+    1) Local file data/llm/official/models.txt (lines: provider|model or model)
+    2) g4f library introspection (heuristic)
+    """
+    out: List[Dict[str, Any]] = []
+    # 1) Local file seed
+    txt = Path('data/llm/official/models.txt')
+    if txt.exists():
+        try:
+            for line in txt.read_text(encoding='utf-8').splitlines():
+                s = line.strip()
+                if not s or s.startswith('#'):
+                    continue
+                if '|' in s:
+                    prov, model = s.split('|', 1)
+                    out.append({"model": model.strip(), "hint": prov.strip(), "pass_rate": None})
+                else:
+                    out.append({"model": s, "hint": None, "pass_rate": None})
+        except Exception:
+            pass
+    # 2) g4f introspection (best-effort)
+    if not out:
+        try:
+            import g4f
+            # Heuristic: scan attributes that look like model name lists
+            cand = []
+            for name in dir(g4f):
+                if name.lower() in ("models", "model"):  # common pattern
+                    try:
+                        val = getattr(g4f, name)
+                        if isinstance(val, (list, tuple)):
+                            cand.extend(str(x) for x in val if isinstance(x, (str,)))
+                        elif isinstance(val, dict):
+                            cand.extend(str(k) for k in val.keys())
+                    except Exception:
+                        continue
+            cand = [c for c in cand if c and isinstance(c, str)]
+            # unique preserve
+            seen = set(); ordered = []
+            for c in cand:
+                if c not in seen:
+                    seen.add(c); ordered.append(c)
+            for m in ordered:
+                out.append({"model": m, "hint": None, "pass_rate": None})
+        except Exception:
+            pass
+    # clip
+    uniq = []
+    seen = set()
+    for it in out:
+        m = it.get('model')
+        if m and m not in seen:
+            seen.add(m); uniq.append(it)
+    return uniq[:limit]
+
+
 def _probe_model(model_name: str, system: Optional[str] = None, prompt: Optional[str] = None,
                  providers_per_model: int = 4, tries_per_model: int = 2, timeout: int = 45) -> ModelProbe:
     system = system or "Tu es un analyste macro‑financier factuel et concis."
@@ -93,16 +153,34 @@ def _probe_model(model_name: str, system: Optional[str] = None, prompt: Optional
 
 
 def refresh(limit: int = 8, refresh_verified: bool = True) -> Path:
-    cand = _verified_candidates(limit=limit, refresh=refresh_verified)
+    import os
+    source = os.getenv('G4F_SOURCE', 'both').lower().strip()
+    cand: List[Dict[str, Any]] = []
+    if source in ('verified', 'both'):
+        for it in _verified_candidates(limit=limit, refresh=refresh_verified):
+            it = dict(it); it['__source'] = 'verified'; cand.append(it)
+    if source in ('official', 'both'):
+        for it in _official_candidates(limit=limit):
+            it = dict(it); it['__source'] = 'official'; cand.append(it)
+    # Deduplicate by model preserving order
+    seen = set(); merged: List[Dict[str, Any]] = []
+    for it in cand:
+        m = it.get('model')
+        if m and m not in seen:
+            seen.add(m); merged.append(it)
+    if not merged:
+        merged = [{"model": m, "pass_rate": None, "hint": None, "__source": None} for m in _static_candidates()[:limit]]
     out: List[ModelProbe] = []
-    for c in cand:
+    for c in merged:
         m = c.get("model") if isinstance(c, dict) else str(c)
         pr = ModelProbe(model=m, ok=False, provider=None, latency_s=None, pass_rate=c.get("pass_rate") if isinstance(c, dict) else None)
         try:
             probe = _probe_model(m)
+            probe.source = c.get('__source')
             probe.pass_rate = pr.pass_rate
             out.append(probe)
         except Exception:
+            pr.source = c.get('__source')
             out.append(pr)
         # small pacing to avoid hammering providers
         time.sleep(0.5)

@@ -50,6 +50,17 @@ else:
             avg_agreement=('avg_agreement','mean'),
             last_seen=('dt','max')
         ).reset_index()
+        # Enrich with last working latency/provider from working.json
+        try:
+            w = Path('data/llm/models/working.json')
+            if w.exists():
+                wobj = json.loads(w.read_text(encoding='utf-8'))
+                rows_w = {r.get('model'): r for r in (wobj.get('models') or [])}
+                ag['provider'] = ag['model'].map(lambda m: (rows_w.get(m) or {}).get('provider'))
+                ag['latency_s'] = ag['model'].map(lambda m: (rows_w.get(m) or {}).get('latency_s'))
+                ag['source'] = ag['model'].map(lambda m: (rows_w.get(m) or {}).get('source'))
+        except Exception:
+            pass
         ag = ag.sort_values(['avg_agreement','uses'], ascending=[False, False])
         st.dataframe(ag, use_container_width=True)
         try:
@@ -57,4 +68,3 @@ else:
             st.download_button("Exporter scoreboard (CSV)", data=csv_bytes, file_name="llm_scoreboard.csv", mime="text/csv")
         except Exception:
             pass
-
