@@ -3,6 +3,8 @@ Project Docs — Finance Agent
 Quickstart
 - UI canonical port: `5555`. Start with `make ui-start`.
 - After any UI change: `make ui-restart` (single instance policy).
+- Background mode: `make ui-start-bg` / `make ui-restart-bg` (non‑blocking; logs under `logs/ui/streamlit_5555.log`).
+- Check status/logs: `make ui-status` / `make ui-logs`.
 - Keep UI always up: `make ui-watch` (auto‑restart if port is down).
 - Optional search backend: `make searx-up` then `export SEARXNG_LOCAL_URL=http://localhost:8082`.
 
