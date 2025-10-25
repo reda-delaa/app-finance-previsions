@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import requests
+import datetime as _dt
 
 # Local imports (ensure src on path if needed when run as script)
 try:
@@ -68,6 +69,28 @@ def _utcnow() -> datetime:
 def _iso(dtobj: Optional[datetime] = None) -> str:
     d = dtobj or _utcnow()
     return d.isoformat() + "Z"
+
+
+def _is_nan(val: Any) -> bool:
+    try:
+        import math
+        return isinstance(val, float) and math.isnan(val)
+    except Exception:
+        return False
+
+
+def _clean_json(obj: Any) -> Any:
+    """Recursively replace NaN/Inf with None for JSON safety."""
+    import math
+    if isinstance(obj, dict):
+        return {k: _clean_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean_json(x) for x in obj]
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    return obj
 
 
 # ------------------------ NEWS ---------------------------------
@@ -261,16 +284,60 @@ def update_prices_and_fundamentals(tickers: List[str]) -> int:
 
 
 # ------------------------ INVESTIGATIONS ----------------------
+def _next_weekday(d: _dt.date, target_weekday: int) -> _dt.date:
+    # Monday=0 ... Sunday=6
+    delta = (target_weekday - d.weekday()) % 7
+    if delta == 0:
+        delta = 7
+    return d + _dt.timedelta(days=delta)
+
+def _midmonth(d: _dt.date) -> _dt.date:
+    # approximate CPI mid‑month: 15th or next business day
+    target = d.replace(day=15)
+    if target < d:
+        # move to next month
+        m = 1 if target.month == 12 else target.month + 1
+        y = target.year + 1 if target.month == 12 else target.year
+        target = target.replace(year=y, month=m, day=15)
+    # if weekend, push to Monday
+    while target.weekday() >= 5:
+        target += _dt.timedelta(days=1)
+    return target
+
+def generate_upcoming_events(days_ahead: int = 14) -> List[Dict[str, Any]]:
+    today = _dt.date.today()
+    events: List[Dict[str, Any]] = []
+    # CPI (approx mid‑month)
+    cpi_date = _midmonth(today)
+    if 0 <= (cpi_date - today).days <= days_ahead:
+        events.append({"date": cpi_date.isoformat(), "name": "Inflation (CPI) — États‑Unis", "impact": "Prix à la consommation, peut influer sur les taux et le dollar"})
+    # NFP (approx first Friday next month or next Friday if beginning)
+    next_friday = _next_weekday(today, 4)
+    if 0 <= (next_friday - today).days <= days_ahead:
+        events.append({"date": next_friday.isoformat(), "name": "Emploi (NFP) — États‑Unis", "impact": "Marché du travail, peut influer sur la politique monétaire"})
+    # FOMC (approx: next Wednesday + 2 weeks)
+    next_wed = _next_weekday(today, 2)
+    fomc_date = next_wed + _dt.timedelta(days=14)
+    if 0 <= (fomc_date - today).days <= days_ahead:
+        events.append({"date": fomc_date.isoformat(), "name": "Décision de la Fed (FOMC)", "impact": "Taux directeurs et communication sur la politique monétaire"})
+    return events
+
 def investigate_macro(theme: str = "gold miners & macro context") -> Dict[str, Any]:
     """Produce a concise investigation report combining macro deltas and a news brief."""
     # Macro snapshot (best-effort)
     macro: Dict[str, Any] = {}
     try:
         dxy = get_fred_series("DTWEXBGS"); dgs10 = get_fred_series("DGS10")
-        s = dxy.iloc[:,0].dropna() if dxy is not None and not dxy.empty else pd.Series([], dtype=float)
-        s10 = dgs10.iloc[:,0].dropna() if dgs10 is not None and not dgs10.empty else pd.Series([], dtype=float)
-        macro["DXY_wow"] = float((s.iloc[-1] / s.iloc[-5]) - 1.0) if len(s) > 5 else None
-        macro["UST10Y_bp_wow"] = float((s10.iloc[-1] - s10.iloc[-5]) * 100.0) if len(s10) > 5 else None
+        s = dxy.iloc[:, 0].dropna() if dxy is not None and not dxy.empty else pd.Series([], dtype=float)
+        s10 = dgs10.iloc[:, 0].dropna() if dgs10 is not None and not dgs10.empty else pd.Series([], dtype=float)
+        if len(s) > 5:
+            macro["DXY_wow"] = float((s.iloc[-1] / s.iloc[-5]) - 1.0)
+        else:
+            macro["DXY_wow"] = None
+        if len(s10) > 5:
+            macro["UST10Y_bp_wow"] = float((s10.iloc[-1] - s10.iloc[-5]) * 100.0)
+        else:
+            macro["UST10Y_bp_wow"] = None
     except Exception:
         pass
     # Gather recent news
@@ -302,7 +369,8 @@ def investigate_macro(theme: str = "gold miners & macro context") -> Dict[str, A
     }
     outdir = Path("data/reports") / f"dt={datetime.utcnow().strftime('%Y%m%d')}"
     outdir.mkdir(parents=True, exist_ok=True)
-    (outdir / "investigation_gold.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    safe_report = _clean_json(report)
+    (outdir / "investigation_gold.json").write_text(json.dumps(safe_report, ensure_ascii=False, indent=2), encoding="utf-8")
     return report
 
 
@@ -315,10 +383,10 @@ def discover_topics_via_llm(watchlist: List[str]) -> List[str]:
     macro: Dict[str, Any] = {}
     try:
         dxy = get_fred_series("DTWEXBGS"); dgs10 = get_fred_series("DGS10")
-        if dxy is not None and not dxy.empty:
-            macro["DXY_wow"] = float((dxy.iloc[-1, 0] / dxy.iloc[-5, 0]) - 1.0) if len(dxy.index) > 5 else None
-        if dgs10 is not None and not dgs10.empty:
-            macro["UST10Y_bp_wow"] = float((dgs10.iloc[-1, 0] - dgs10.iloc[-5, 0]) * 100.0) if len(dgs10.index) > 5 else None
+        s = dxy.iloc[:, 0].dropna() if dxy is not None and not dxy.empty else pd.Series([], dtype=float)
+        s10 = dgs10.iloc[:, 0].dropna() if dgs10 is not None and not dgs10.empty else pd.Series([], dtype=float)
+        macro["DXY_wow"] = float((s.iloc[-1] / s.iloc[-5]) - 1.0) if len(s) > 5 else None
+        macro["UST10Y_bp_wow"] = float((s10.iloc[-1] - s10.iloc[-5]) * 100.0) if len(s10) > 5 else None
     except Exception:
         pass
 
@@ -354,7 +422,7 @@ def discover_topics_via_llm(watchlist: List[str]) -> List[str]:
     out = {"asof": _iso(), "macro": macro, "watchlist": watchlist, "queries": queries}
     outdir = Path("data/reports") / f"dt={datetime.utcnow().strftime('%Y%m%d')}"
     outdir.mkdir(parents=True, exist_ok=True)
-    (outdir / "topics.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    (outdir / "topics.json").write_text(json.dumps(_clean_json(out), ensure_ascii=False, indent=2), encoding="utf-8")
     return queries
 
 def run_once() -> Dict[str, Any]:

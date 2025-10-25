@@ -29,22 +29,40 @@ if chosen:
                 obj = json.loads(f.read_text(encoding="utf-8"))
                 # Show macro KPIs if present
                 macro = (obj or {}).get("macro") or {}
+                def _is_nan(x):
+                    try:
+                        import math
+                        return isinstance(x, float) and math.isnan(x)
+                    except Exception:
+                        return False
                 def _fmt_pct(v):
                     try:
-                        return f"{float(v)*100:.2f}%"
+                        if v is None:
+                            return "n/a"
+                        f = float(v)
+                        if _is_nan(f):
+                            return "n/a"
+                        return f"{f*100:.2f}%"
                     except Exception:
                         return "n/a"
                 def _fmt_bp(v):
                     try:
-                        return f"{float(v):.1f} bp"
+                        if v is None:
+                            return "n/a"
+                        f = float(v)
+                        if _is_nan(f):
+                            return "n/a"
+                        return f"{f:.1f} bp"
                     except Exception:
                         return "n/a"
                 if macro:
                     c1, c2 = st.columns(2)
                     with c1:
-                        st.metric("Dollar américain (1 semaine)", _fmt_pct(macro.get('DXY_wow')))
+                        st.metric("Dollar américain (variation sur 1 semaine)", _fmt_pct(macro.get('DXY_wow')))
                     with c2:
-                        st.metric("Taux US 10 ans (1 semaine)", _fmt_bp(macro.get('UST10Y_bp_wow')))
+                        st.metric("Taux US 10 ans (écart sur 1 semaine)", _fmt_bp(macro.get('UST10Y_bp_wow')))
+                    if any(_is_nan(v) or v is None for v in [macro.get('DXY_wow'), macro.get('UST10Y_bp_wow')]):
+                        st.caption("Certaines données macro sont indisponibles aujourd'hui (week‑end/jour férié). Valeurs manquantes affichées en 'n/a'.")
                 st.json(obj)
             except Exception as e:
                 st.warning(f"Failed to read {f.name}: {e}")
