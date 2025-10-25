@@ -126,18 +126,20 @@ def main() -> int:
         changes = {"macro": {}, "watchlist_moves": []}
         try:
             dxy = get_fred_series("DTWEXBGS")
-            if not dxy.empty and len(dxy.index) > 7:
-                macro["DXY_wow"] = float((dxy.iloc[-1, 0] / dxy.iloc[-5, 0]) - 1.0)
-            if not dxy.empty and len(dxy.index) > 1:
-                changes["macro"]["DXY_d1"] = float((dxy.iloc[-1, 0] / dxy.iloc[-2, 0]) - 1.0)
+            s = dxy.iloc[:,0].dropna() if dxy is not None and not dxy.empty else pd.Series([], dtype=float)
+            if len(s) > 5:
+                macro["DXY_wow"] = float((s.iloc[-1] / s.iloc[-5]) - 1.0)
+            if len(s) > 1:
+                changes["macro"]["DXY_d1"] = float((s.iloc[-1] / s.iloc[-2]) - 1.0)
         except Exception:
             pass
         try:
             dgs10 = get_fred_series("DGS10")
-            if not dgs10.empty and len(dgs10.index) > 7:
-                macro["UST10Y_bp_wow"] = float((dgs10.iloc[-1, 0] - dgs10.iloc[-5, 0]) * 100.0)
-            if not dgs10.empty and len(dgs10.index) > 1:
-                changes["macro"]["UST10Y_bp_d1"] = float((dgs10.iloc[-1, 0] - dgs10.iloc[-2, 0]) * 100.0)
+            s10 = dgs10.iloc[:,0].dropna() if dgs10 is not None and not dgs10.empty else pd.Series([], dtype=float)
+            if len(s10) > 5:
+                macro["UST10Y_bp_wow"] = float((s10.iloc[-1] - s10.iloc[-5]) * 100.0)
+            if len(s10) > 1:
+                changes["macro"]["UST10Y_bp_d1"] = float((s10.iloc[-1] - s10.iloc[-2]) * 100.0)
         except Exception:
             pass
         try:

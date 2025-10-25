@@ -29,15 +29,24 @@ if chosen:
                 obj = json.loads(f.read_text(encoding="utf-8"))
                 # Show macro KPIs if present
                 macro = (obj or {}).get("macro") or {}
+                def _fmt_pct(v):
+                    try:
+                        return f"{float(v)*100:.2f}%"
+                    except Exception:
+                        return "n/a"
+                def _fmt_bp(v):
+                    try:
+                        return f"{float(v):.1f} bp"
+                    except Exception:
+                        return "n/a"
                 if macro:
                     c1, c2 = st.columns(2)
                     with c1:
-                        st.metric("DXY WoW", f"{macro.get('DXY_wow') if macro.get('DXY_wow') is not None else 'n/a'}")
+                        st.metric("Dollar américain (1 semaine)", _fmt_pct(macro.get('DXY_wow')))
                     with c2:
-                        st.metric("UST10Y bp WoW", f"{macro.get('UST10Y_bp_wow') if macro.get('UST10Y_bp_wow') is not None else 'n/a'}")
+                        st.metric("Taux US 10 ans (1 semaine)", _fmt_bp(macro.get('UST10Y_bp_wow')))
                 st.json(obj)
             except Exception as e:
                 st.warning(f"Failed to read {f.name}: {e}")
 else:
     st.info("Select a date to view investigation reports.")
-

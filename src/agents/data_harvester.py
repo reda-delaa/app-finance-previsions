@@ -267,10 +267,10 @@ def investigate_macro(theme: str = "gold miners & macro context") -> Dict[str, A
     macro: Dict[str, Any] = {}
     try:
         dxy = get_fred_series("DTWEXBGS"); dgs10 = get_fred_series("DGS10")
-        if dxy is not None and not dxy.empty:
-            macro["DXY_wow"] = float((dxy.iloc[-1, 0] / dxy.iloc[-5, 0]) - 1.0) if len(dxy.index) > 5 else None
-        if dgs10 is not None and not dgs10.empty:
-            macro["UST10Y_bp_wow"] = float((dgs10.iloc[-1, 0] - dgs10.iloc[-5, 0]) * 100.0) if len(dgs10.index) > 5 else None
+        s = dxy.iloc[:,0].dropna() if dxy is not None and not dxy.empty else pd.Series([], dtype=float)
+        s10 = dgs10.iloc[:,0].dropna() if dgs10 is not None and not dgs10.empty else pd.Series([], dtype=float)
+        macro["DXY_wow"] = float((s.iloc[-1] / s.iloc[-5]) - 1.0) if len(s) > 5 else None
+        macro["UST10Y_bp_wow"] = float((s10.iloc[-1] - s10.iloc[-5]) * 100.0) if len(s10) > 5 else None
     except Exception:
         pass
     # Gather recent news
