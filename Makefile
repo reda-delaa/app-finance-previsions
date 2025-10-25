@@ -64,3 +64,11 @@ factory-run:
 	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_llm_agents.py || true
 	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_macro_regime.py || true
 	PYTHONPATH=$$PWD/src $(PYTHON) scripts/fuse_forecasts.py || true
+
+.PHONY: risk-monitor memos
+
+risk-monitor:
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_risk_monitor.py
+
+memos:
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_memos.py

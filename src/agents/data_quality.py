@@ -175,6 +175,37 @@ def scan_all() -> Dict[str, Any]:
         'features': scan_features(),
         'events': scan_events(),
     }
+    # Freshness checks (simple age thresholds)
+    try:
+        freshness: Dict[str, Any] = {"issues": []}
+        # news: expect something in last 3 days
+        import pandas as _pd
+        from glob import glob
+        from datetime import timedelta as _td
+        now = datetime.utcnow()
+        # news
+        news_parts = sorted(Path('data/news').glob('dt=*'))
+        if news_parts:
+            last = news_parts[-1].name.replace('dt=','')
+            try:
+                last_dt = _pd.to_datetime(last).to_pydatetime()
+                if (now - last_dt).days > 3:
+                    freshness['issues'].append({'sev':'warn','msg':'news partitions older than 3 days'})
+            except Exception:
+                pass
+        # forecasts
+        fc_parts = sorted(Path('data/forecast').glob('dt=*'))
+        if fc_parts:
+            last = fc_parts[-1].name.replace('dt=','')
+            try:
+                last_dt = _pd.to_datetime(last).to_pydatetime()
+                if (now - last_dt).days > 2:
+                    freshness['issues'].append({'sev':'warn','msg':'forecasts partitions older than 2 days'})
+            except Exception:
+                pass
+        out['freshness'] = {'ok': len(freshness['issues'])==0, 'issues': freshness['issues']}
+    except Exception:
+        out['freshness'] = {'ok': True, 'issues': []}
     ok = all(v.get('ok', False) for v in out.values() if isinstance(v, dict))
     out['ok'] = ok
     return out
@@ -204,4 +235,3 @@ def main(argv: List[str] | None = None) -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main())
-
