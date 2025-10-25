@@ -59,8 +59,18 @@ with st.sidebar:
     gold_tickers = st.text_input("Gold miners (comma)", value="NGD.TO,AEM.TO,ABX.TO,K.TO,GDX")
 
 rows = []
-# Fast path: show top from Parquet if present (1m only)
+# Fast path: prefer aggregated Final if present (1m), fallback to forecasts parquet
 try:
+    # Prefer final.parquet
+    from pathlib import Path as _P
+    parts_f = sorted(_P('data/forecast').glob('dt=*/final.parquet'))
+    if parts_f:
+        _fdf = pd.read_parquet(parts_f[-1])
+        _fsel = _fdf[_fdf['horizon']=='1m'].sort_values('final_score', ascending=False).head(10)
+        if not _fsel.empty:
+            st.subheader("Top 10 (Final)")
+            st.dataframe(_fsel[['ticker','final_score']].reset_index(drop=True), use_container_width=True)
+    # Fallback to forecasts parquet detailed view
     if have_files("data/forecast/dt=*/forecasts.parquet"):
         dfp = query_duckdb("""
             select * from read_parquet('data/forecast/dt=*/forecasts.parquet')

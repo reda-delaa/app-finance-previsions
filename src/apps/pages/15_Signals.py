@@ -83,9 +83,21 @@ else:
                 df = df.merge(fdf[cols], on='ticker', how='left')
         # momentum 21d
         df['mom_21d'] = [ _mom_21d(t) for t in df['ticker'] ]
+        # Join final_score if available for the same horizon
+        try:
+            import pandas as _pd
+            from pathlib import Path as _P
+            parts = sorted(_P('data/forecast').glob('dt=*/final.parquet'))
+            if parts:
+                fdf = _pd.read_parquet(parts[-1])
+                fdf = fdf[fdf['horizon']==horizon][['ticker','final_score']]
+                df = df.merge(fdf, on='ticker', how='left')
+        except Exception:
+            pass
         # show top
-        top = df.sort_values('signal_score', ascending=False).head(top_n)
-        show_cols = [c for c in ['ticker','signal_score','direction','confidence','expected_return','ml_return','ml_conf','llm_consensus','mean_sentiment','mom_21d','y_pe','y_beta'] if c in top.columns]
+        top = df.sort_values(['final_score','signal_score'] if 'final_score' in df.columns else ['signal_score'], ascending=False).head(top_n)
+        show_cols_base = ['ticker','final_score','signal_score','direction','confidence','expected_return','ml_return','ml_conf','llm_consensus','mean_sentiment','mom_21d','y_pe','y_beta']
+        show_cols = [c for c in show_cols_base if c in top.columns]
         if beginner:
             st.caption("Le score combine: règle (direction x confiance + ER), ML (retour x confiance), et consensus LLM (0–1). Plus haut = plus favorable.")
         st.subheader("Top signaux")
