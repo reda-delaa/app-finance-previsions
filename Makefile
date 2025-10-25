@@ -132,6 +132,11 @@ ui-status:
 ui-logs:
 	tail -f logs/ui/streamlit_$${AF_UI_PORT-5555}.log
 
+# --- Dash (experimental UI) ---
+.PHONY: dash-start
+dash-start:
+	AF_DASH_PORT=$${AF_DASH_PORT-8050} PYTHONPATH=$$PWD/src $(PYTHON) src/dash_app/app.py
+
 .PHONY: ui-watch
 ui-watch:
 	AF_UI_PORT=$${AF_UI_PORT-5555} AF_UI_WATCH_INTERVAL=$${AF_UI_WATCH_INTERVAL-5} bash scripts/ui_watch.sh
