@@ -5,13 +5,15 @@ import sys as _sys
 import json
 import pandas as pd
 import streamlit as st
+from ui.shell import page_header, page_footer
 
 SRC = Path(__file__).resolve().parents[2]
 if str(SRC) not in _sys.path:
     _sys.path.insert(0, str(SRC))
 
 st.set_page_config(page_title="Portfolio — Finance Agent", layout="wide")
-st.title("💼 Portfolio — Poids & Propositions")
+page_header(active="user")
+st.subheader("💼 Portfolio — Poids & Propositions")
 
 def _load_holdings() -> pd.DataFrame:
     p = Path('data/portfolio/holdings.json')
@@ -50,7 +52,7 @@ with st.sidebar:
 hold = _load_holdings()
 st.subheader("Positions actuelles")
 if hold.empty:
-    st.info("Aucune position. Ajoutez data/portfolio/holdings.json")
+    st.info("Aucune position. Utilisez l'action dans la barre latérale pour créer un exemple, ou ajoutez data/portfolio/holdings.json.")
 else:
     st.dataframe(hold, use_container_width=True)
 
@@ -165,3 +167,4 @@ else:
                         st.metric("Différence", f"{(ret_prop-ret_cur)*100:.2f}%")
             except Exception:
                 pass
+page_footer()
