@@ -22,3 +22,17 @@ test-venv:
 
 it-integration-venv:
 	. .venv/bin/activate && AF_ALLOW_INTERNET=1 PYTHONPATH=$$PWD/src python -m pytest -m integration -q
+
+# --- LLM model watcher and agents ---
+.PHONY: g4f-refresh llm-agents harvester-once
+
+G4F_LIMIT ?= 8
+
+g4f-refresh:
+	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.g4f_model_watcher --refresh --limit $(G4F_LIMIT)
+
+llm-agents:
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_llm_agents.py
+
+harvester-once:
+	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.data_harvester --once

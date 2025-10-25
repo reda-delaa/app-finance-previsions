@@ -1,0 +1,11 @@
+Examples to schedule the g4f model watcher and agents (macOS/Linux crontab)
+
+# Refresh g4f working models hourly (limit 8)
+0 * * * * cd /Users/venom/Documents/analyse-financiere && G4F_TEST_LIMIT=8 /usr/bin/env PYTHONPATH=/Users/venom/Documents/analyse-financiere/src /usr/bin/env python3 -m src.agents.g4f_model_watcher --refresh --limit 8 >> logs/g4f_refresh.log 2>&1
+
+# Run LLM ensemble agents daily at 06:30
+30 6 * * * cd /Users/venom/Documents/analyse-financiere && /usr/bin/env PYTHONPATH=/Users/venom/Documents/analyse-financiere/src /usr/bin/env python3 scripts/run_llm_agents.py >> logs/llm_agents.log 2>&1
+
+# Optional: one-cycle harvester every 2 hours
+0 */2 * * * cd /Users/venom/Documents/analyse-financiere && /usr/bin/env PYTHONPATH=/Users/venom/Documents/analyse-financiere/src /usr/bin/env python3 -m src.agents.data_harvester --once >> logs/harvester_once.log 2>&1
+
