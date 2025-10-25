@@ -156,3 +156,12 @@ searx-down:
 
 searx-logs:
 	docker compose -f ops/web/searxng-local/docker-compose.yml logs -f
+
+# --- Forecast agents (no orchestrator; callable via Makefile/cron) ---
+.PHONY: equity-forecast forecast-aggregate
+
+equity-forecast:
+	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.equity_forecast_agent
+
+forecast-aggregate:
+	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.forecast_aggregator_agent

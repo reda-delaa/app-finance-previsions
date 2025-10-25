@@ -71,3 +71,8 @@ How to run
 - Keep models fresh: `make g4f-refresh` or `make g4f-refresh-official`
 - Backfill 5y prices: `make backfill-prices`
 - UI: `PYTHONPATH=src streamlit run src/apps/agent_app.py`
+- Forecast agents: `make equity-forecast` then `make forecast-aggregate`
+Planned/Started (agents)
+- Equity forecast agent: generates dt=YYYYMMDD/forecasts.parquet with baseline (momentum/vol) for 1w/1m/1y.
+- Forecast aggregator: reads latest forecasts.parquet, computes final_score, writes dt=YYYYMMDD/final.parquet.
+- Makefile targets: `make equity-forecast`, `make forecast-aggregate`.
