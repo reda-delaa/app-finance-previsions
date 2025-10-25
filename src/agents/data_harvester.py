@@ -451,7 +451,18 @@ def discover_topics_via_llm(watchlist: List[str]) -> List[str]:
 
 def run_once() -> Dict[str, Any]:
     st = _load_state()
-    watchlist = [x.strip().upper() for x in (os.getenv("WATCHLIST") or "NGD.TO,AEM.TO,ABX.TO,K.TO,GDX").split(",") if x.strip()]
+    # WATCHLIST from env; fallback to data/watchlist.json if present
+    wl_env = os.getenv("WATCHLIST") or "NGD.TO,AEM.TO,ABX.TO,K.TO,GDX"
+    watchlist = [x.strip().upper() for x in wl_env.split(",") if x.strip()]
+    try:
+        p = Path('data/watchlist.json')
+        if p.exists():
+            obj = json.loads(p.read_text(encoding='utf-8'))
+            lst = [x.strip().upper() for x in (obj.get('watchlist') or []) if isinstance(x, str) and x.strip()]
+            if lst:
+                watchlist = lst
+    except Exception:
+        pass
     out: Dict[str, Any] = {"asof": _iso(), "actions": []}
     try:
         n = harvest_news_recent(["US","INTL"], watchlist, query=os.getenv("NEWS_QUERY",""), window=os.getenv("NEWS_WINDOW","24h"), limit=300)

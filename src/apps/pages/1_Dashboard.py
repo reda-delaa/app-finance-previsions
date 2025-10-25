@@ -192,6 +192,40 @@ try:
 except Exception:
     pass
 
+# ---- Mini Alerts card (top issues & moves) ----
+try:
+    from pathlib import Path as _P
+    import json as _json
+    # Quality top issue
+    q = sorted(_P('data/quality').glob('dt=*/report.json'))
+    top_issue = None
+    if q:
+        rep = _json.loads(_P(q[-1]).read_text(encoding='utf-8'))
+        sev_order = {'error':0,'warn':1,'info':2}
+        items=[]
+        for sec in ['news','macro','prices','forecasts','features','events']:
+            for it in (rep.get(sec,{}).get('issues') or []):
+                items.append((sev_order.get(str(it.get('sev','info')).lower(),9), sec, it.get('msg')))
+        if items:
+            items.sort(key=lambda x: x[0])
+            top_issue = f"{items[0][1]}: {items[0][2]}"
+    # Biggest watchlist move from brief
+    b = sorted(_P('data/forecast').glob('dt=*/brief.json'))
+    top_move = None
+    if b:
+        br = _json.loads(_P(b[-1]).read_text(encoding='utf-8'))
+        w = (br.get('changes') or {}).get('watchlist_moves') or []
+        if w:
+            import pandas as _pd
+            dfw=_pd.DataFrame(w); dfw['abs']=dfw['d1'].abs(); dfw=dfw.sort_values('abs', ascending=False)
+            top_move = f"{dfw.iloc[0]['ticker']}: {round(float(dfw.iloc[0]['d1'])*100,2)}% (1j)"
+    if top_issue or top_move:
+        st.subheader("Alerts (résumé)")
+        if top_issue: st.write(f"- Données: {top_issue}")
+        if top_move: st.write(f"- Mouvement: {top_move}")
+except Exception:
+    pass
+
 # Optional: Cumulative Top‑N performance chart if parquet forecasts + cached prices exist
 try:
     if have_files("data/forecast/dt=*/forecasts.parquet"):
