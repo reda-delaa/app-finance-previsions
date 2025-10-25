@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PORT="${AF_UI_PORT:-5555}"
-LOGDIR="logs/ui"
+LOGDIR="$REPO_ROOT/logs/ui"
 PIDFILE="$LOGDIR/streamlit_${PORT}.pid"
 
 echo "[ui-status] Port: $PORT"
@@ -30,4 +31,3 @@ if [ -f "$LOGFILE" ]; then
 else
   echo "[ui-status] No log file yet ($LOGFILE)"
 fi
-

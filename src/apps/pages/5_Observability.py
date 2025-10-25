@@ -78,7 +78,9 @@ with st.expander("Redémarrer l'interface (arrière‑plan)", expanded=False):
                 try:
                     env = dict(**os.environ)
                     env.setdefault("AF_UI_PORT", os.getenv("AF_UI_PORT", "5555"))
-                    out = subprocess.run(["bash", "scripts/ui_restart_bg.sh"], capture_output=True, text=True, env=env, timeout=30)
+                    root = Path(__file__).resolve().parents[2]
+                    script = str(root/"scripts"/"ui_restart_bg.sh")
+                    out = subprocess.run(["bash", script], capture_output=True, text=True, env=env, timeout=45)
                     st.info("Redémarrage demandé. L'UI peut se couper puis revenir; rechargez cette page après 2–3s.")
                     if out.stdout:
                         st.code(out.stdout.strip(), language='bash')
