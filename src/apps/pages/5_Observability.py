@@ -2,6 +2,7 @@ from pathlib import Path
 import sys as _sys
 import os
 import streamlit as st
+import subprocess
 from ui.shell import page_header, page_footer
 
 SRC = Path(__file__).resolve().parents[2]
@@ -63,6 +64,29 @@ try:
         st.caption("Aucun log trouvé pour l'UI (lancé via ui_start_bg/ui_restart_bg ?)")
 except Exception:
     st.caption("Section UI indisponible (erreur d'accès système).")
+
+st.markdown("#### Action (Admin) — Redémarrer l'UI")
+with st.expander("Redémarrer l'interface (arrière‑plan)", expanded=False):
+    st.caption("Cette action stoppe l'instance Streamlit courante puis la relance en arrière‑plan avec journaux. L'interface sera indisponible quelques secondes.")
+    with st.form("ui_restart_form"):
+        confirm = st.checkbox("Je confirme le redémarrage immédiat de l'UI")
+        submitted = st.form_submit_button("Redémarrer maintenant (bg)")
+        if submitted:
+            if not confirm:
+                st.warning("Cochez la case de confirmation avant de redémarrer.")
+            else:
+                try:
+                    env = dict(**os.environ)
+                    env.setdefault("AF_UI_PORT", os.getenv("AF_UI_PORT", "5555"))
+                    out = subprocess.run(["bash", "scripts/ui_restart_bg.sh"], capture_output=True, text=True, env=env, timeout=30)
+                    st.info("Redémarrage demandé. L'UI peut se couper puis revenir; rechargez cette page après 2–3s.")
+                    if out.stdout:
+                        st.code(out.stdout.strip(), language='bash')
+                    if out.stderr:
+                        st.caption("stderr:")
+                        st.code(out.stderr.strip(), language='bash')
+                except Exception as e:
+                    st.error(f"Échec du redémarrage: {e}")
 
 st.markdown("#### Processus")
 st.write("UI principale et pages chargées. Consultez les logs dans le dossier logs/ si nécessaire.")
