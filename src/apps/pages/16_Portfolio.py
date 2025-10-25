@@ -39,7 +39,7 @@ with st.sidebar:
     do_tilt = st.checkbox("Activer le tilt macro", value=False)
     tilt_strength = st.slider("Intensité tilt (%)", 0, 20, 5)
     tilt_list = st.text_input("Tickers à favoriser (optionnel)", value="GDX, AEM.TO, ABX.TO, K.TO, NGD.TO")
-    st.caption("Sans liste, l'app tentera d'inférer des tickers liés à l'or/énergie par heuristique.")
+    st.caption("Sans liste, l'app tentera d'inférer des tickers via presets (data/config/tilt_presets.json) puis heuristique or/énergie.")
     st.divider()
     st.subheader("Rebalance simulator")
     import datetime as _dt
@@ -85,6 +85,16 @@ else:
                         # favor commodities in inflation regime
                         infl_p = float(probs.get('inflation') or 0.0)
                         favor_set = set(tilt_names)
+                        # if not specified, try presets
+                        if not favor_set:
+                            try:
+                                cfgp = _P('data/config/tilt_presets.json')
+                                if cfgp.exists():
+                                    presets = _json.loads(cfgp.read_text(encoding='utf-8'))
+                                    lst = presets.get('inflation') or []
+                                    favor_set = set([str(x).upper() for x in lst if isinstance(x, (str,))])
+                            except Exception:
+                                pass
                         if not favor_set:
                             favor_set = set([t for t in top['ticker'] if any(k in str(t).upper() for k in ['GDX','GLD','XLE','AEM','ABX','K.TO','NGD'])])
                         if favor_set:

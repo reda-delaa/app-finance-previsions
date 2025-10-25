@@ -47,7 +47,18 @@ else:
 
 st.divider()
 st.subheader("Mouvements récents (watchlist)")
-thr = st.slider("Seuil absolu (%, 1j)", 0.0, 5.0, 1.0, 0.1)
+# Load default threshold from settings if present
+thr_default = 1.0
+try:
+    import json as _json
+    from pathlib import Path as _P
+    ap = _P('data/config/alerts.json')
+    if ap.exists():
+        js = _json.loads(ap.read_text(encoding='utf-8'))
+        thr_default = float(js.get('move_abs_pct', 1.0))
+except Exception:
+    pass
+thr = st.slider("Seuil absolu (%, 1j)", 0.0, 5.0, float(thr_default), 0.1)
 b = _latest('data/forecast/dt=*/brief.json')
 if not b:
     st.info("Aucun brief.json récent. Lancez agent_daily.")
