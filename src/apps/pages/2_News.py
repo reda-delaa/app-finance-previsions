@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys as _sys
 import streamlit as st
+from ui.shell import page_header, page_footer
 import pandas as pd
 
 SRC = Path(__file__).resolve().parents[2]
@@ -13,7 +14,8 @@ import glob
 import pandas as pd
 
 st.set_page_config(page_title="News — Finance Agent", layout="wide")
-st.title("🗞️ News — Agrégation & Synthèse IA")
+page_header(active="user")
+st.subheader("🗞️ News — Agrégation & Synthèse IA")
 
 with st.sidebar:
     st.header("Paramètres")
@@ -138,3 +140,6 @@ if run:
             st.json(summ.get("json"))
     else:
         st.info("Aucun article trouvé.")
+else:
+    st.info("Saisissez vos filtres puis cliquez « Agrèger & Résumer ». Si des parquets existent (data/news/dt=*), ils seront utilisés en priorité.")
+page_footer()
