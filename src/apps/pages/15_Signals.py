@@ -4,19 +4,21 @@ from pathlib import Path
 import sys as _sys
 import pandas as pd
 import streamlit as st
+from ui.shell import page_header, page_footer
 
 SRC = Path(__file__).resolve().parents[2]
 if str(SRC) not in _sys.path:
     _sys.path.insert(0, str(SRC))
 
 st.set_page_config(page_title="Signals — Finance Agent", layout="wide")
-st.title("🔎 Signals — Indicateurs par Titre")
+page_header(active="user")
+st.subheader("🔎 Signals — Indicateurs par Titre")
 
 from core.data_store import have_files, query_duckdb
 
 with st.sidebar:
     st.header("Paramètres")
-    beginner = st.toggle("Beginner mode", value=False, help="Affiche des explications simples pour comprendre les scores.")
+    beginner = st.toggle("Mode débutant", value=False, help="Affiche des explications simples pour comprendre les scores.")
     horizon = st.selectbox("Horizon", ["1w","1m","1y"], index=1)
     top_n = st.slider("Top N", 1, 20, 10)
     st.caption("Pondération des composantes du signal (normalisées).")
@@ -41,7 +43,7 @@ def _mom_21d(ticker: str) -> float | None:
     return None
 
 if not have_files("data/forecast/dt=*/forecasts.parquet"):
-    st.warning("Aucun forecasts.parquet. Lancez scripts/agent_daily.py")
+    st.info("Aucune prévision consolidée disponible pour l'instant. Consultez Admin → Agents Status pour l'état du pipeline.")
 else:
     df = query_duckdb(f"select * from read_parquet('data/forecast/dt=*/forecasts.parquet') where horizon='{horizon}'")
     if df.empty:
@@ -93,3 +95,4 @@ else:
             st.download_button("Télécharger (CSV)", data=csv_bytes, file_name=f"signals_{horizon}.csv", mime="text/csv")
         except Exception:
             pass
+page_footer()
