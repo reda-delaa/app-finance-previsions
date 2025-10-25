@@ -60,3 +60,20 @@
 - Refactor UI Streamlit: pages modulaires, `st_ui.py` utilitaires, composants communs.
 - Normaliser config/env: src/core/config.py, .env, secrets_local.py.
  - Automatiser UI smoke (Playwright MCP) + sécurité (pip‑audit/safety/bandit/secret‑scan).
+
+
+## EPIC: Usine à Prévisions F4F
+- US15: Agent Prévision Équité (equity_forecast_agent) — génère distributions (1j/1s/1m), écrit equities.parquet.
+  - AC: ≥5 ans d'historique; colonnes standardisées (ticker, horizon, mean, vol, p_up).
+- US16: Agent Prévision Commodités (commodity_forecast_agent) — inclut drivers macro.
+  - AC: actifs or/pétrole initiaux; champs alignés à US15.
+- US17: Agent Macro Forecast (macro_forecast_agent) — croissance/inflation/taux.
+  - AC: prob. récession/12m; séries publiées.
+- US18: Agrégateur/Arbitre (forecast_aggregator_agent) — construit final.parquet.
+  - AC: pondération par performance; export CSV.
+- US19: Backtest Agent — top‑N basé prévisions; métriques.
+  - AC: Sharpe, CAGR, MaxDD; équity curve.
+- US20: Évaluation modèles — MAE/RMSE/couverture; classement.
+  - AC: tableau UI Évaluation; export.
+- US21: Sentiment & News — score par actif/thème.
+  - AC: feed enrichi; score [-1,1].

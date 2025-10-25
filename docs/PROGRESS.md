@@ -8,6 +8,11 @@ Recent (UI/Ops)
 - SearXNG local stack added (ops/web/searxng-local) and probe script; web navigator prefers local.
 - Security & CI: pip‑audit/safety/bandit/secret‑scan; UI smoke (Playwright MCP) added.
 
+ATLAS feedback captured
+- UI/Code directions recorded under docs/atlas/
+- Backlog extended with F4F agents EPICs
+- Next: implement in‑page dates/empty states across pages
+
 Status (done)
 - Data + Freshness
   - Harvester: news/macro/prices/fundamentals (watchlist override via data/watchlist.json)

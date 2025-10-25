@@ -33,3 +33,7 @@ Validation (automatisée)
 Statut
 - Fait: top‑nav + footer, thème sombre, Scoreboard revu (CSV export), pages Admin dédiées (Earnings, Agents Status), SearXNG local, audit sécurité.
 - À faire prochain: déplacer les sélecteurs de date en page; ajouter états vides; unifier libellés FR; confirmations de sauvegarde Notes/Settings.
+
+
+Référence
+- Voir le retour structuré: docs/atlas/2025-10-25_atlas_feedback.md
