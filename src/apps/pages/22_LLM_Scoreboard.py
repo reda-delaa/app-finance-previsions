@@ -2,6 +2,7 @@ from pathlib import Path
 import sys as _sys
 import json
 import streamlit as st
+from ui.shell import page_header, page_footer
 import pandas as pd
 
 SRC = Path(__file__).resolve().parents[2]
@@ -9,7 +10,8 @@ if str(SRC) not in _sys.path:
     _sys.path.insert(0, str(SRC))
 
 st.set_page_config(page_title="LLM Scoreboard — Finance Agent", layout="wide")
-st.title("🏁 LLM Scoreboard — Utilisation & Accord")
+page_header(active="admin")
+st.subheader("🏁 LLM Scoreboard — Utilisation & Accord")
 
 with st.sidebar:
     st.header("Fenêtre")
@@ -31,7 +33,7 @@ for p in sorted(Path('data/forecast').glob('dt=*/llm_agents.json')):
         continue
 
 if not rows:
-    st.info("Aucune donnée LLM (llm_agents.json). Lancez scripts/run_llm_agents.py")
+    st.info("Aucune donnée LLM disponible pour l'instant. Consultez Admin → Agents Status pour l'état des agents.")
 else:
     df = pd.DataFrame(rows)
     # filter by date window if dt parseable
@@ -68,3 +70,4 @@ else:
             st.download_button("Exporter scoreboard (CSV)", data=csv_bytes, file_name="llm_scoreboard.csv", mime="text/csv")
         except Exception:
             pass
+page_footer()

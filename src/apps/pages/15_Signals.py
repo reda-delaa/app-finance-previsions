@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 import sys as _sys
 import pandas as pd
@@ -14,6 +16,7 @@ from core.data_store import have_files, query_duckdb
 
 with st.sidebar:
     st.header("Paramètres")
+    beginner = st.toggle("Beginner mode", value=False, help="Affiche des explications simples pour comprendre les scores.")
     horizon = st.selectbox("Horizon", ["1w","1m","1y"], index=1)
     top_n = st.slider("Top N", 1, 20, 10)
     st.caption("Pondération des composantes du signal (normalisées).")
@@ -40,7 +43,7 @@ def _mom_21d(ticker: str) -> float | None:
 if not have_files("data/forecast/dt=*/forecasts.parquet"):
     st.warning("Aucun forecasts.parquet. Lancez scripts/agent_daily.py")
 else:
-    df = query_duckdb("select * from read_parquet('data/forecast/dt=*/forecasts.parquet') where horizon=$1", [horizon])
+    df = query_duckdb(f"select * from read_parquet('data/forecast/dt=*/forecasts.parquet') where horizon='{horizon}'")
     if df.empty:
         st.info("Aucune donnée pour cet horizon.")
     else:
@@ -81,6 +84,8 @@ else:
         # show top
         top = df.sort_values('signal_score', ascending=False).head(top_n)
         show_cols = [c for c in ['ticker','signal_score','direction','confidence','expected_return','ml_return','ml_conf','llm_consensus','mean_sentiment','mom_21d','y_pe','y_beta'] if c in top.columns]
+        if beginner:
+            st.caption("Le score combine: règle (direction x confiance + ER), ML (retour x confiance), et consensus LLM (0–1). Plus haut = plus favorable.")
         st.subheader("Top signaux")
         st.dataframe(top[show_cols], use_container_width=True)
         try:

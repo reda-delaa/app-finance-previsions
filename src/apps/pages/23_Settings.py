@@ -2,6 +2,7 @@ from pathlib import Path
 import sys as _sys
 import json
 import streamlit as st
+from ui.shell import page_header, page_footer
 
 SRC = Path(__file__).resolve().parents[2]
 if str(SRC) not in _sys.path:
@@ -9,6 +10,7 @@ if str(SRC) not in _sys.path:
 
 st.set_page_config(page_title="Settings — Finance Agent", layout="wide")
 st.title("⚙️ Settings — Presets & Seuils")
+page_header(active="admin")
 
 base_cfg = Path('data/config')
 base_cfg.mkdir(parents=True, exist_ok=True)
@@ -51,3 +53,4 @@ if st.button("Enregistrer seuils"):
     except Exception as e:
         st.warning(f"Erreur: {e}")
 
+page_footer()

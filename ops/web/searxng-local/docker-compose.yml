@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng-local
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      - SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
+      - BASE_URL=http://localhost:8082/
+    volumes:
+      - ./settings.yml:/etc/searxng/settings.yml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+

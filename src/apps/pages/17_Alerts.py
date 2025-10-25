@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 import sys as _sys
 import json
@@ -19,7 +21,7 @@ def _latest(globpat: str) -> Path | None:
 st.subheader("Qualité des données (dernier rapport)")
 q = _latest('data/quality/dt=*/report.json')
 if not q:
-    st.info("Aucun rapport de qualité. Lancez la page Quality.")
+    st.info("Aucun rapport de qualité disponible. Consultez Admin → Data Quality pour générer un rapport.")
 else:
     try:
         obj = json.loads(Path(q).read_text(encoding='utf-8'))
@@ -61,7 +63,7 @@ except Exception:
 thr = st.slider("Seuil absolu (%, 1j)", 0.0, 5.0, float(thr_default), 0.1)
 b = _latest('data/forecast/dt=*/brief.json')
 if not b:
-    st.info("Aucun brief.json récent. Lancez agent_daily.")
+    st.info("Aucun brief récent. Consultez Admin → Agents Status pour vérifier la fraîcheur des données.")
 else:
     try:
         br = json.loads(Path(b).read_text(encoding='utf-8'))
@@ -94,3 +96,34 @@ else:
                 pass
     except Exception as e:
         st.warning(f"Lecture brief impossible: {e}")
+
+st.divider()
+st.subheader("Earnings à venir (watchlist)")
+# charge le dernier snapshot earnings
+try:
+    parts = sorted(Path('data/earnings').glob('dt=*/earnings.json'))
+    if not parts:
+        st.info("Aucun earnings.json trouvé. Consultez Admin → Agents Status.")
+    else:
+        p = parts[-1]
+        obj = json.loads(Path(p).read_text(encoding='utf-8'))
+        evs = obj.get('events') or []
+        rows = []
+        for e in evs:
+            rows.append({'ticker': e.get('ticker'), 'date': e.get('date'), 'info': e.get('info')})
+        df = pd.DataFrame(rows)
+        if df.empty:
+            st.info("Aucun événement à afficher.")
+        else:
+            df['date'] = pd.to_datetime(df['date'], errors='coerce')
+            days = st.slider("Fenêtre (jours à venir)", 3, 60, 21)
+            now = pd.Timestamp.utcnow().normalize()
+            soon = df[(df['date']>=now)&(df['date']<=now+pd.Timedelta(days=days))].copy()
+            st.dataframe((soon if not soon.empty else df).sort_values('date'), use_container_width=True)
+            try:
+                csv_bytes = (soon if not soon.empty else df).to_csv(index=False).encode('utf-8')
+                st.download_button("Exporter earnings (CSV)", data=csv_bytes, file_name="alerts_earnings.csv", mime="text/csv")
+            except Exception:
+                pass
+except Exception as e:
+    st.warning(f"Lecture earnings impossible: {e}")

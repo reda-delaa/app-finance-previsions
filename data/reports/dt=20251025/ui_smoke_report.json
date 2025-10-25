@@ -1,0 +1,80 @@
+{
+  "asof": "2025-10-25T16:09:37.351221Z",
+  "results": [
+    {
+      "page": "Dashboard",
+      "url": "http://localhost:8501/Dashboard",
+      "status": "ok",
+      "errors": [],
+      "warnings": [
+        "Aucun"
+      ]
+    },
+    {
+      "page": "Agents_Status",
+      "url": "http://localhost:8501/Agents_Status",
+      "status": "ok",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "page": "LLM_Scoreboard",
+      "url": "http://localhost:8501/LLM_Scoreboard",
+      "status": "ok",
+      "errors": [],
+      "warnings": [
+        "Aucun",
+        "Aucune"
+      ]
+    },
+    {
+      "page": "Earnings",
+      "url": "http://localhost:8501/Earnings",
+      "status": "ok",
+      "errors": [],
+      "warnings": [
+        "Aucun"
+      ]
+    },
+    {
+      "page": "Risk",
+      "url": "http://localhost:8501/Risk",
+      "status": "ok",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "page": "Recession",
+      "url": "http://localhost:8501/Recession",
+      "status": "ok",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "page": "Signals",
+      "url": "http://localhost:8501/Signals",
+      "status": "ok",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "page": "Portfolio",
+      "url": "http://localhost:8501/Portfolio",
+      "status": "ok",
+      "errors": [],
+      "warnings": [
+        "Aucun",
+        "Aucune"
+      ]
+    },
+    {
+      "page": "Alerts",
+      "url": "http://localhost:8501/Alerts",
+      "status": "ok",
+      "errors": [],
+      "warnings": [
+        "Aucun"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+# Minimal SearXNG settings for local JSON API usage
+use_default_settings: true
+
+server:
+  bind_address: 0.0.0.0
+  port: 8080
+  secret_key: "change-me-dev"
+  method: "GET"
+
+ui:
+  static_use_hash: true
+
+outgoing:
+  request_timeout: 8.0
+  max_request_timeout: 20.0
+
+search:
+  safe_search: 0
+  formats:
+    - json
+    - html
+  # Keep defaults engines; can be tuned later
+
+engines:
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+  - name: google
+    engine: google
+    shortcut: g
+  - name: bing
+    engine: bing
+    shortcut: b
+

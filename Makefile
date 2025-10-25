@@ -50,12 +50,12 @@ g4f-probe-api:
 	PYTHONPATH=$$PWD/src $(PYTHON) scripts/g4f_probe_api.py --base $${G4F_API_BASE-http://127.0.0.1:8081} --limit $${G4F_PROBE_LIMIT-40} --update-working
 
 g4f-merge-probe:
-	PYTHONPATH=$$PWD/src $(PYTHON) - <<'PY'
-from src.agents.g4f_model_watcher import merge_from_working_txt
-from pathlib import Path
-p = merge_from_working_txt(Path('data/llm/probe/working_results.txt'))
-print('Updated:', p)
-PY
+	PYTHONPATH=$$PWD/src $(PYTHON) - <<-'PY'
+	from src.agents.g4f_model_watcher import merge_from_working_txt
+	from pathlib import Path
+	p = merge_from_working_txt(Path('data/llm/probe/working_results.txt'))
+	print('Updated:', p)
+	PY
 
 .PHONY: macro-regime fuse-forecasts factory-run
 
@@ -81,6 +81,65 @@ risk-monitor:
 memos:
 	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_memos.py
 
+.PHONY: recession earnings
+
+recession:
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_recession.py
+
+earnings:
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/run_earnings.py
+
 .PHONY: backfill-prices
 backfill-prices:
 	PYTHONPATH=$$PWD/src $(PYTHON) scripts/backfill_prices.py
+
+.PHONY: ui-smoke
+ui-smoke:
+	# Requires: pip install playwright && python -m playwright install chromium
+	UI_BASE=$${UI_BASE-http://localhost:5555} PYTHONPATH=$$PWD/src $(PYTHON) ops/ui/ui_smoke.py || true
+
+.PHONY: ui-smoke-mcp
+ui-smoke-mcp:
+	# Requires: npm i -D @modelcontextprotocol/sdk and @playwright/mcp available via npx
+	UI_BASE=$${UI_BASE-http://localhost:5555} node ops/ui/mcp_ui_smoke.mjs || true
+
+.PHONY: sec-audit
+sec-audit:
+	bash ops/security/security_scan.sh
+
+.PHONY: ui-start ui-stop ui-restart
+ui-start:
+	AF_UI_PORT=$${AF_UI_PORT-5555} bash scripts/ui_start.sh
+
+ui-stop:
+	bash scripts/ui_stop.sh
+
+ui-restart:
+	$(MAKE) ui-stop || true
+	AF_UI_PORT=$${AF_UI_PORT-5555} bash scripts/ui_start.sh
+
+.PHONY: ui-watch
+ui-watch:
+	AF_UI_PORT=$${AF_UI_PORT-5555} AF_UI_WATCH_INTERVAL=$${AF_UI_WATCH_INTERVAL-5} bash scripts/ui_watch.sh
+
+.PHONY: net-observe net-sni-log
+net-observe:
+	PYTHONPATH=$$PWD/src $(PYTHON) ops/net/net_observe.py --interval $${NET_INTERVAL-5} --samples $${NET_SAMPLES-0}
+
+net-sni-log:
+	IFACE=$${IFACE-en0} OUTDIR=$${OUTDIR-artifacts/net} bash ops/net/tls_sni_log.sh
+
+.PHONY: searx-probe
+searx-probe:
+	PYTHONPATH=$$PWD/src $(PYTHON) ops/web/searxng_probe.py --runs $${SEARX_PROBE_RUNS-12} --sleep $${SEARX_PROBE_SLEEP-0.5}
+
+.PHONY: searx-up searx-down searx-logs
+searx-up:
+	docker compose -f ops/web/searxng-local/docker-compose.yml up -d
+	@echo "SearXNG local on http://localhost:8082 (export SEARXNG_LOCAL_URL=http://localhost:8082)"
+
+searx-down:
+	docker compose -f ops/web/searxng-local/docker-compose.yml down
+
+searx-logs:
+	docker compose -f ops/web/searxng-local/docker-compose.yml logs -f

@@ -1,0 +1,152 @@
+{
+  "asof": "2025-10-25T17:34:21.974845Z",
+  "runs": 20,
+  "success": 0,
+  "failures": 20,
+  "rate_limits": 147,
+  "forbidden": 0,
+  "non_json": 0,
+  "instances": {},
+  "results": [
+    {
+      "q": "site:reuters.com Fed inflation outlook",
+      "ok": false,
+      "dt_s": 15.301,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "site:ft.com earnings outlook",
+      "ok": false,
+      "dt_s": 22.377,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "US CPI release date",
+      "ok": false,
+      "dt_s": 34.625,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "ECB meeting schedule",
+      "ok": false,
+      "dt_s": 86.09,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "gold price forecast",
+      "ok": false,
+      "dt_s": 37.862,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "Treasury yields 10y",
+      "ok": false,
+      "dt_s": 13.43,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "AAPL earnings forecast",
+      "ok": false,
+      "dt_s": 10.406,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "NVDA guidance next quarter",
+      "ok": false,
+      "dt_s": 100.387,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "site:reuters.com Fed inflation outlook",
+      "ok": false,
+      "dt_s": 11.93,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "site:ft.com earnings outlook",
+      "ok": false,
+      "dt_s": 23.595,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "US CPI release date",
+      "ok": false,
+      "dt_s": 104.913,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "ECB meeting schedule",
+      "ok": false,
+      "dt_s": 13.511,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "gold price forecast",
+      "ok": false,
+      "dt_s": 16.249,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "Treasury yields 10y",
+      "ok": false,
+      "dt_s": 92.316,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "AAPL earnings forecast",
+      "ok": false,
+      "dt_s": 21.763,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "NVDA guidance next quarter",
+      "ok": false,
+      "dt_s": 91.797,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "site:reuters.com Fed inflation outlook",
+      "ok": false,
+      "dt_s": 13.274,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "site:ft.com earnings outlook",
+      "ok": false,
+      "dt_s": 11.744,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "US CPI release date",
+      "ok": false,
+      "dt_s": 115.967,
+      "instance": null,
+      "err": null
+    },
+    {
+      "q": "ECB meeting schedule",
+      "ok": false,
+      "dt_s": 15.03,
+      "instance": null,
+      "err": null
+    }
+  ]
+}

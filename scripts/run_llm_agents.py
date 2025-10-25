@@ -22,7 +22,7 @@ from analytics.econ_llm_agent import EconomicAnalyst, EconomicInput
 
 
 WATCHLIST = os.getenv("WATCHLIST", "NGD.TO,AEM.TO,ABX.TO,K.TO,GDX").split(",")
-OUTDIR = Path("data/forecast") / datetime.utcnow().strftime("%Y%m%d")
+OUTDIR = Path("data/forecast") / f"dt={datetime.utcnow().strftime('%Y%m%d')}"
 
 
 def main() -> int:
@@ -55,4 +55,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

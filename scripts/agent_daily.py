@@ -2,7 +2,7 @@
 Daily agent runner:
 - Builds snapshots via analytics.market_intel
 - Runs baseline forecasts for watchlist
-- Writes outputs to data/forecast/YYYYMMDD/
+- Writes outputs to data/forecast/dt=YYYYMMDD/
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import pandas as pd
 
 
 WATCHLIST = os.getenv("WATCHLIST", "NGD.TO,AEM.TO,ABX.TO,K.TO,GDX").split(",")
-OUTDIR = Path("data/forecast") / datetime.utcnow().strftime("%Y%m%d")
+OUTDIR = Path("data/forecast") / f"dt={datetime.utcnow().strftime('%Y%m%d')}"
 
 
 def main() -> int:

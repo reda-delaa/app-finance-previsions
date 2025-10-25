@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 from pathlib import Path
 import sys as _sys
 import os
 import json
 import streamlit as st
 import pandas as pd
+from ui.shell import page_header, page_footer
 
 SRC = Path(__file__).resolve().parents[2]
 if str(SRC) not in _sys.path:
@@ -16,7 +19,12 @@ import numpy as np
 
 st.set_page_config(page_title="Dashboard — Finance Agent", layout="wide")
 st.title("📊 Dashboard — Résumé & Picks")
+page_header(active="user")
+with st.sidebar:
+    beginner = st.toggle("Beginner mode", value=False, help="Affiche des explications simples et des indices d'interprétation.")
 st.caption("Uses Parquet/DuckDB if available for fast scanning; falls back to JSON.")
+if beginner:
+    st.info("Cette page résume les meilleures idées selon les signaux disponibles (prévisions, ML, consensus LLM). Utilisez-la pour un aperçu rapide.")
 
 # Alerts badge (latest Quality report error/warn counts)
 try:

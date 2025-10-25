@@ -1,0 +1,14 @@
+[theme]
+primaryColor = "#2E77D0"
+backgroundColor = "#0E1117"
+secondaryBackgroundColor = "#1B1F2A"
+textColor = "#E5E7EB"
+font = "Inter"
+
+[client]
+toolbarMode = "viewer"
+
+[server]
+headless = false
+runOnSave = true
+

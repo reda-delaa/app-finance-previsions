@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # web_navigator.py — finance-first web search (SearXNG + optional Serper/Tavily)
 # ✅ Fixes: no-redirect JSON-only requests, engines optional, POST fallback,
 #           instance preflight+health cache, 429 cooldown (Retry-After), blacklist on 30x/403,
@@ -226,6 +228,10 @@ def _request_json_post(url: str, data: dict | None = None, timeout=SEARXNG_TIMEO
 def fetch_searxng_instances(logger_=None) -> list[str]:
     if logger_ is None:
         logger_ = logger
+    # Prefer local instance if provided via env
+    local = os.getenv("SEARXNG_LOCAL_URL", "").strip().rstrip('/')
+    prefer_local: list[str] = [local] if local.startswith("http") else []
+
     try:
         data = _request_json_get(SEARXNG_FETCH_URL, timeout=(6, 12))
         inst = []
@@ -245,7 +251,7 @@ def fetch_searxng_instances(logger_=None) -> list[str]:
         ]
         prime = [u for u in SEARXNG_KNOWN_JSON_OK if u in inst]
         rest = [u for u in inst if u not in prime]
-        inst = prime + rest
+        inst = prefer_local + prime + rest
         if inst:
             logger_.debug(f"SearXNG public instances fetched: {len(inst)}")
             logger_.debug(f"Sample: {inst[:5]}")
@@ -254,7 +260,7 @@ def fetch_searxng_instances(logger_=None) -> list[str]:
         inst = []
 
     if not inst:
-        fallback = [u.rstrip("/") for u in (SEARXNG_KNOWN_JSON_OK + SEARXNG_FALLBACK_INSTANCES)]
+        fallback = [u.rstrip("/") for u in (prefer_local + SEARXNG_KNOWN_JSON_OK + SEARXNG_FALLBACK_INSTANCES)]
         random.shuffle(fallback)
         logger_.info(f"Using fallback SearXNG instances: {fallback[:5]}...")
         inst = fallback

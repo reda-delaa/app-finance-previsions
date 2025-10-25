@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 import sys as _sys
 import json
@@ -9,6 +11,8 @@ if str(SRC) not in _sys.path:
 
 st.set_page_config(page_title="Risk — Finance Agent", layout="wide")
 st.title("🛡️ Risk Monitor — Composite")
+with st.sidebar:
+    beginner = st.toggle("Beginner mode", value=False, help="Explications simples des indicateurs.")
 
 with st.sidebar:
     st.header("Source")
@@ -30,8 +34,9 @@ else:
         c1,c2 = st.columns(2)
         with c1: st.metric("Risk Level", obj.get('risk_level'))
         with c2: st.metric("Composite (z‑approx)", f"{obj.get('composite'):.2f}")
+        if beginner:
+            st.caption("Inversion de courbe (DGS10-DGS2) négative, spread High Yield élevé, ou NFCI élevé → risque plus important.")
         st.subheader("Composants")
         st.json(obj.get('components') or {})
         with st.expander("JSON brut"):
             st.json(obj)
-

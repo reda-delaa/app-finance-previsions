@@ -17,35 +17,32 @@ from typing import Optional
 # Load environment variables from .env file BEFORE using them
 load_dotenv()
 
-# --- Local keys (edit these) ---
-FIRECRAWL_API_KEY = "fc-48a370c2f5874d4ab418adb2257d0cf5"
-SERPER_API_KEY = "133fc32fa88cd9413a2f8286009eb40a5d7e93b2"
-TAVILY_API_KEY = "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"
-FINNHUB_API_KEY = "d31j44pr01qsprr18im0d31j44pr01qsprr18img"
-FRED_API_KEY = "63bcdd7052a9d5f2339d2a631b4f1f5a"
+# --- Local keys (read from environment only; do not hardcode real secrets here) ---
+FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY")
+SERPER_API_KEY = os.getenv("SERPER_API_KEY")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY") or os.getenv("FINNHUB_KEY")
+FRED_API_KEY = os.getenv("FRED_API_KEY")
 
-
-
-# Optional keys you can add when available
-ALPHA_VANTAGE_KEY = "RFLFQN0UK9HUTPQG"
-YAHOO_API_KEY = None
+# Optional keys
+ALPHA_VANTAGE_KEY = os.getenv("ALPHA_VANTAGE_KEY")
+YAHOO_API_KEY = os.getenv("YAHOO_API_KEY")
 
 # --- Export to environment for modules that read os.environ / dotenv ---
 # Only export when a key is actually set to avoid leaking placeholders.
 if FIRECRAWL_API_KEY:
-	os.environ.setdefault("FIRECRAWL_API_KEY", str(FIRECRAWL_API_KEY))
+    os.environ.setdefault("FIRECRAWL_API_KEY", str(FIRECRAWL_API_KEY))
 if SERPER_API_KEY:
-	os.environ.setdefault("SERPER_API_KEY", str(SERPER_API_KEY))
+    os.environ.setdefault("SERPER_API_KEY", str(SERPER_API_KEY))
 if TAVILY_API_KEY:
-	os.environ.setdefault("TAVILY_API_KEY", str(TAVILY_API_KEY))
+    os.environ.setdefault("TAVILY_API_KEY", str(TAVILY_API_KEY))
 if FINNHUB_API_KEY:
-	os.environ.setdefault("FINNHUB_API_KEY", str(FINNHUB_API_KEY))
-	# keep compatibility with older env var name
-	os.environ.setdefault("FINNHUB_KEY", str(FINNHUB_API_KEY))
+    os.environ.setdefault("FINNHUB_API_KEY", str(FINNHUB_API_KEY))
+    os.environ.setdefault("FINNHUB_KEY", str(FINNHUB_API_KEY))
 if ALPHA_VANTAGE_KEY:
-	os.environ.setdefault("ALPHA_VANTAGE_KEY", str(ALPHA_VANTAGE_KEY))
+    os.environ.setdefault("ALPHA_VANTAGE_KEY", str(ALPHA_VANTAGE_KEY))
 if YAHOO_API_KEY:
-	os.environ.setdefault("YAHOO_API_KEY", str(YAHOO_API_KEY))
+    os.environ.setdefault("YAHOO_API_KEY", str(YAHOO_API_KEY))
 
 
 def get_key(name: str) -> Optional[str]:

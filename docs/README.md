@@ -1,8 +1,23 @@
-Project Docs
- 
-- See `product/backlog.md` for user stories and acceptance criteria.
-- See `architecture/vision.md` and `architecture/c4.md` for target architecture and diagrams.
-- See `architecture/refactor_plan.md` for the step-by-step refactor roadmap.
-- See `ui/ui_audit.md` for the UI audit and redesign plan.
-- See `runbook/codex_playbook.md` to orchestrate MCP-powered analysis and delivery.
- - See `PROGRESS.md` for current status (what's done, what's next).
+Project Docs — Finance Agent
+
+Quickstart
+- UI canonical port: `5555`. Start with `make ui-start`.
+- After any UI change: `make ui-restart` (single instance policy).
+- Keep UI always up: `make ui-watch` (auto‑restart if port is down).
+- Optional search backend: `make searx-up` then `export SEARXNG_LOCAL_URL=http://localhost:8082`.
+
+MCP & Codex CLI
+- Codex config: `~/.codex/config.toml` (browser MCP, architecture analyzer, filesystem, memory, mermaid, sqlite, serper/tavily/firecrawl, spec‑workflow, taskmanager, FRED/Finnhub, Playwright MCP).
+- First time: Node/npm required; Playwright MCP downloads browsers on first run.
+- Runbook and prompts: `runbook/codex_playbook.md`.
+
+Docs Map
+- Product: `product/backlog.md` — EPICs, user stories, acceptance criteria.
+- Architecture: `architecture/vision.md`, `architecture/c4.md`, `architecture/refactor_plan.md`.
+- UI: `ui/ui_audit.md` — audit, decisions, and action plan.
+- Progress: `PROGRESS.md` — what’s done, what’s next, run discipline.
+
+Principles
+- No central orchestrator in runtime UI. Pipelines run via `Makefile`/cron; UI reads latest partitions under `data/**/dt=YYYYMMDD/`.
+- Safe UI by default: no shell/make prompts in user flows; admin‑only guidance lives in Agents Status/docs.
+- French language first; consistent copy, friendly empty states, and confirmations after writes.

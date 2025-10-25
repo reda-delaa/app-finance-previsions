@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 import sys as _sys
 import streamlit as st

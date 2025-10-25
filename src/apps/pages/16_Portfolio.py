@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 import sys as _sys
 import json
@@ -55,7 +57,7 @@ else:
 st.subheader("Proposition (Top‑N par score final)")
 fp = _latest_final_parquet()
 if not fp:
-    st.info("Aucun final.parquet. Lancez scripts/fuse_forecasts.py")
+    st.info("Aucune consolidation de prévisions disponible. Consultez Admin → Agents Status pour l'état du pipeline.")
 else:
     df = pd.read_parquet(fp)
     if df.empty:

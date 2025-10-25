@@ -46,6 +46,8 @@ UX & sorties
 Discipline Git & Docs (obligatoire)
 - Après chaque ajout/patch: git add → git commit (message clair) → git push.
 - Mettre à jour docs/PROGRESS.md (fait/ajouts récents/next/how-to-run).
+- Toujours redémarrer l’UI après un changement de l’interface: `make ui-restart` (port canonique 5555). Ne jamais laisser plusieurs instances Streamlit tourner sur des ports différents.
+- Effectuer des commits atomiques après chaque ajout/correction visible (message explicite). En cas de doute, commit avant changement risqué.
 - Documenter les nouvelles cibles Makefile et scripts.
 - Ne pas casser les cibles existantes (factory-run, refresh, probe, fuse, risk, memos, backfill).
 - Idempotence: écrire sous data/.../dt=YYYYMMDD/ sans écraser l’historique.
@@ -61,6 +63,7 @@ Orchestration
   - g4f-refresh / g4f-refresh-official / g4f-probe-api / g4f-fetch-official
   - risk-monitor / memos / backfill-prices
 - UI « status » = pages lisant les dernières partitions/JSON; badge d’alertes sur le Dashboard.
+ - Ne pas utiliser `orch/orchestrator.py` dans l’exécution; préférer les scripts séquentiels et Makefile.
 
 Règles d’évolution
 - Ne pas dupliquer un agent; étendre l’existant.
@@ -80,4 +83,3 @@ Critères d’acceptation (exemples)
 Sorties attendues
 - Fichiers sous data/<domaine>/dt=YYYYMMDD/*.{json,parquet}; exports UI (CSV/JSON).
 - Commits fréquents; PROGRESS.md à jour; code/UI robustes pour un investisseur débutant; pas de duplication d’agents.
-
