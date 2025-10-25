@@ -1,4 +1,5 @@
-PYTHON := $(shell which python)
+# Prefer python3, fallback to python
+PYTHON := $(shell command -v python3 || command -v python)
 
 .PHONY: test smoke it-integration
 

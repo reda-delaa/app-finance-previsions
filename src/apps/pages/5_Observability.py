@@ -81,6 +81,23 @@ try:
 except Exception:
     st.caption("Section UI indisponible (erreur d'accès système).")
 
+st.markdown("#### Log en direct (manuel)")
+with st.expander("Afficher/rafraîchir", expanded=False):
+    repo_root = Path(__file__).resolve().parents[3]
+    port = os.getenv("AF_UI_PORT", "5555")
+    logfile = repo_root / 'logs' / 'ui' / f'streamlit_{port}.log'
+    n_lines = st.slider("Nombre de lignes (tail)", 10, 400, 120, step=10)
+    if logfile.exists():
+        try:
+            lines = logfile.read_text(encoding='utf-8', errors='ignore').splitlines()
+            st.code("\n".join(lines[-n_lines:]) or "(vide)", language='bash')
+            if st.button("Rafraîchir"):
+                pass  # rerender
+        except Exception as e:
+            st.warning(f"Lecture log impossible: {e}")
+    else:
+        st.caption("Log introuvable — lancez l'UI en arrière-plan pour créer le log.")
+
 st.markdown("#### Action (Admin) — Redémarrer l'UI")
 with st.expander("Redémarrer l'interface (arrière‑plan)", expanded=False):
     st.caption("Cette action stoppe l'instance Streamlit courante puis la relance en arrière‑plan avec journaux. L'interface sera indisponible quelques secondes.")

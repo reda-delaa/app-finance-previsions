@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Iterable
 
@@ -54,8 +54,9 @@ def _momentum(series: pd.Series, days: int) -> float | None:
 
 
 def _forecasts_for_ticker(ticker: str, horizons: Iterable[str]) -> List[dict]:
-    # Fetch up to 400 trading days (~18m) to derive simple features (momentum/vol)
-    hist = get_price_history(ticker, lookback_days=400)
+    # Fetch ~500 calendar days to derive simple features (momentum/vol)
+    start = (datetime.utcnow().date() - timedelta(days=500)).isoformat()
+    hist = get_price_history(ticker, start=start)
     rows: List[dict] = []
     if hist is None or hist.empty or "Close" not in hist.columns:
         for h in horizons:
@@ -131,4 +132,3 @@ def run_once() -> Path:
 if __name__ == "__main__":
     p = run_once()
     print(p)
-
