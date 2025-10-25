@@ -90,6 +90,54 @@ with st.expander("Redémarrer l'interface (arrière‑plan)", expanded=False):
                 except Exception as e:
                     st.error(f"Échec du redémarrage: {e}")
 
+st.markdown("#### Actions (Admin) — Démarrer / Arrêter l'UI")
+cols = st.columns(2)
+with cols[0]:
+    with st.form("ui_start_form"):
+        st.caption("Démarrer l'interface en arrière‑plan (si aucune instance n'écoute).")
+        start_confirm = st.checkbox("Je confirme le démarrage de l'UI")
+        start_submit = st.form_submit_button("Démarrer (bg)")
+        if start_submit:
+            if not start_confirm:
+                st.warning("Cochez la case de confirmation avant de démarrer.")
+            else:
+                try:
+                    env = dict(**os.environ)
+                    env.setdefault("AF_UI_PORT", os.getenv("AF_UI_PORT", "5555"))
+                    root = Path(__file__).resolve().parents[2]
+                    script = str(root/"scripts"/"ui_start_bg.sh")
+                    out = subprocess.run(["bash", script], capture_output=True, text=True, env=env, timeout=45)
+                    st.info("Démarrage demandé. L'UI devrait être disponible sous peu.")
+                    if out.stdout:
+                        st.code(out.stdout.strip(), language='bash')
+                    if out.stderr:
+                        st.caption("stderr:")
+                        st.code(out.stderr.strip(), language='bash')
+                except Exception as e:
+                    st.error(f"Échec du démarrage: {e}")
+
+with cols[1]:
+    with st.form("ui_stop_form"):
+        st.caption("Arrêter l'interface courante (best‑effort).")
+        stop_confirm = st.checkbox("Je confirme l'arrêt de l'UI")
+        stop_submit = st.form_submit_button("Arrêter")
+        if stop_submit:
+            if not stop_confirm:
+                st.warning("Cochez la case de confirmation avant d'arrêter.")
+            else:
+                try:
+                    root = Path(__file__).resolve().parents[2]
+                    script = str(root/"scripts"/"ui_stop.sh")
+                    out = subprocess.run(["bash", script], capture_output=True, text=True, timeout=30)
+                    st.info("Arrêt demandé.")
+                    if out.stdout:
+                        st.code(out.stdout.strip(), language='bash')
+                    if out.stderr:
+                        st.caption("stderr:")
+                        st.code(out.stderr.strip(), language='bash')
+                except Exception as e:
+                    st.error(f"Échec de l'arrêt: {e}")
+
 st.markdown("#### Processus")
 st.write("UI principale et pages chargées. Consultez les logs dans le dossier logs/ si nécessaire.")
 page_footer()
