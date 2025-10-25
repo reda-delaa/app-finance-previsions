@@ -1,6 +1,6 @@
 {
   "horizon": "1m",
-  "top_n": 1,
+  "top_n": 3,
   "count_days": 1,
   "avg_basket_return": -0.19787984377264134,
   "median": -0.19787984377264134,
