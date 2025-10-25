@@ -126,6 +126,46 @@ def load_working_models(max_age_hours: int = 24) -> List[str]:
     return [r.get("model") for r in rows if r.get("ok")]
 
 
+def merge_from_working_txt(txt_path: Path) -> Path:
+    """Merge provider|model|media_type lines into working.json, marking them ok.
+
+    Lines format: provider|model|media_type
+    Unknown latency/pass_rate will be left as None.
+    """
+    if isinstance(txt_path, str):
+        txt_path = Path(txt_path)
+    models: List[ModelProbe] = []
+    try:
+        with txt_path.open('r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or '|' not in line:
+                    continue
+                parts = line.split('|')
+                if len(parts) >= 2:
+                    provider, model = parts[0].strip(), parts[1].strip()
+                    models.append(ModelProbe(model=model, ok=True, provider=provider, latency_s=None, pass_rate=None))
+    except Exception:
+        pass
+    if not models:
+        return WORKING_PATH
+    # Load existing and union by model name (prefer existing with latency)
+    current = _load_working()
+    cur_map: Dict[str, Dict[str, Any]] = {m.get('model'): m for m in (current.get('models') or [])}
+    for pr in models:
+        if pr.model not in cur_map:
+            cur_map[pr.model] = asdict(pr)
+        else:
+            # ensure ok stays True
+            cur_map[pr.model]['ok'] = True
+            if not cur_map[pr.model].get('provider'):
+                cur_map[pr.model]['provider'] = pr.provider
+    merged = [ModelProbe(**{**x, 'tested_at': x.get('tested_at') or _now_iso()}) for x in cur_map.values()]
+    # Keep deterministic order: ok first, then name
+    merged.sort(key=lambda r: (not r.ok, (r.model or '').lower()))
+    return _save_working(merged)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     import argparse
     p = argparse.ArgumentParser(description="G4F Model Watcher")
@@ -144,4 +184,3 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

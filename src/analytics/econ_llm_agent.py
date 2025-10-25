@@ -373,6 +373,24 @@ class EconomicAnalyst:
                     base = [m for m in dyn if m in dyn_set] + [m for m in base if m not in dyn_set]
         except Exception:
             pass
+        # Reorder with a light reasoning-first preference for economic/trading analysis
+        try:
+            pref = [
+                "deepseek" ,   # R1 / V3 families first
+                "qwen3-235b-a22b-thinking",
+                "glm-4.5",
+                "llama-3.3-70b",
+                "gpt-oss-120b",
+            ]
+            def _key(m: str) -> tuple:
+                lm = (m or "").lower()
+                for i, pat in enumerate(pref):
+                    if pat in lm:
+                        return (0, i)  # highest bucket then by pref index
+                return (1, lm)
+            base = sorted(list(dict.fromkeys(base)), key=_key)
+        except Exception:
+            pass
         self.model_candidates = base
         self.temperature = temperature
         self.max_tokens = max_tokens

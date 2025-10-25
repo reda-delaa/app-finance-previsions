@@ -36,3 +36,15 @@ llm-agents:
 
 harvester-once:
 	PYTHONPATH=$$PWD/src $(PYTHON) -m src.agents.data_harvester --once
+
+.PHONY: g4f-probe-api g4f-merge-probe
+g4f-probe-api:
+	PYTHONPATH=$$PWD/src $(PYTHON) scripts/g4f_probe_api.py --base $${G4F_API_BASE-http://127.0.0.1:8081} --limit $${G4F_PROBE_LIMIT-40} --update-working
+
+g4f-merge-probe:
+	PYTHONPATH=$$PWD/src $(PYTHON) - <<'PY'
+from src.agents.g4f_model_watcher import merge_from_working_txt
+from pathlib import Path
+p = merge_from_working_txt(Path('data/llm/probe/working_results.txt'))
+print('Updated:', p)
+PY
