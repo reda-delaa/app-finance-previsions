@@ -75,6 +75,18 @@ How to run
 - Macro & freshness: `make macro-forecast` and `make update-monitor`
 Dash migration
 - Plan: `docs/architecture/dash_migration.md`
+Delivered (Dash Phase 1/2 — this sprint)
+- Sidebar multipage + thème Bootstrap sombre (Cyborg).
+- Dashboard: sélecteur de date (dt=YYYYMMDD), Top‑10 Final (1m) avec états vides FR, KPIs Macro (CPI YoY, pente 10Y‑2Y, prob. récession).
+- Signals: DataTable triable/filtrable/exportable, filtre d’horizon (1w/1m/1y), surbrillance WATCHLIST.
+- Portfolio: contrôles Top‑N et pondération (égalitaire vs proportionnelle aux scores), états vides robustes.
+- Observability: ping HTTP Dash + log live; scripts dash start/stop/restart fiables (Makefile).
+- Agents Status: page dédiée listant dernières partitions forecasts/final/macro + freshness.json.
+
+How to validate Dash quickly
+- Générer données: `make equity-forecast && make forecast-aggregate && make macro-forecast && make update-monitor`.
+- Redémarrer UI: `make dash-restart-bg`; statut: `make dash-status`; logs: `make dash-logs`.
+- Smoke HTTP: `make dash-smoke` (200 sur routes clés, incl. /agents).
 Planned/Started (agents)
 - Equity forecast agent: generates dt=YYYYMMDD/forecasts.parquet with baseline (momentum/vol) for 1w/1m/1y.
 - Forecast aggregator: reads latest forecasts.parquet, computes final_score, writes dt=YYYYMMDD/final.parquet.
