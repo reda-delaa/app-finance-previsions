@@ -131,7 +131,8 @@ def layout():
             )
         ], md=4),
         dbc.Col([
-            html.Small("Watchlist (AAPL,MSFT,…) ", className="me-2"),
+            dbc.FormText("Filtrer sur ces tickers (format: AAPL,MSFT)"),
+            html.Small("Watchlist: ", className="me-2"),
             dcc.Input(id='dash-watchlist', type='text', placeholder='ex: AAPL,MSFT', debounce=True, style={"minWidth":"240px"})
         ], md=4),
     ], className="mb-3")

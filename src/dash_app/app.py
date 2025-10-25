@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import os
+import json
+import requests
 from pathlib import Path
 from typing import Callable, Dict
 
+import pandas as pd
 import dash
 import dash_bootstrap_components as dbc
 from dash import html, dcc
@@ -47,6 +50,7 @@ def sidebar() -> html.Div:
                 vertical=True,
                 pills=True,
             ),
+            html.Div(id='global-status-badge', className="mt-3"),
         ],
         style={"padding": "0.75rem"},
     )
@@ -79,6 +83,7 @@ app.layout = dbc.Container(
             ],
             className="g-0",
         ),
+        dcc.Interval(id='status-interval', interval=30*1000, n_intervals=0),  # refresh every 30s
     ],
     fluid=True,
 )
@@ -103,6 +108,41 @@ def render_page(pathname: str):
             html.H4("Erreur de navigation"),
             html.Small(str(e)),
         ])
+
+
+@app.callback(dash.Output('global-status-badge', 'children'), dash.Input('status-interval', 'n_intervals'))
+def update_global_status(n):
+    try:
+        # Check HTTP health
+        port = int(os.getenv("AF_DASH_PORT", "8050"))
+        url = f"http://127.0.0.1:{port}/"
+        try:
+            resp = requests.get(url, timeout=2)
+            health_ok = resp.status_code == 200
+        except:
+            health_ok = False
+
+        # Check freshness
+        freshness_ok = True
+        try:
+            paths = sorted(Path('data/quality').glob('dt=*/freshness.json'))
+            if paths:
+                fresh = json.loads(paths[-1].read_text())
+                now = pd.Timestamp.now()
+                latest_dt = pd.to_datetime(fresh.get('latest_dt', '2000-01-01'))
+                hours_diff = (now - latest_dt).total_seconds() / 3600
+                freshness_ok = hours_diff < 25  # data du jour
+        except:
+            freshness_ok = False
+
+        if health_ok and freshness_ok:
+            return dbc.Badge("✓ OK", color="success")
+        elif health_ok:
+            return dbc.Badge("⚠ Données", color="warning")
+        else:
+            return dbc.Badge("✗ Box", color="danger")
+    except:
+        return dbc.Badge("? Err", color="secondary")
 
 
 if __name__ == "__main__":

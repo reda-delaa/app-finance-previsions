@@ -15,7 +15,7 @@ def check(path: str, base: str) -> tuple[str, int, float]:
 
 def main() -> int:
     base = os.getenv("DASH_BASE", f"http://127.0.0.1:{os.getenv('AF_DASH_PORT', '8050')}")
-    targets = ["/", "/dashboard", "/signals", "/portfolio", "/agents", "/observability"]
+    targets = ["/", "/dashboard", "/signals", "/portfolio", "/agents", "/observability", "/regimes", "/risk", "/recession"]
     ok = True
     for p in targets:
         try:
