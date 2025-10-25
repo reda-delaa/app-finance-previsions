@@ -33,6 +33,7 @@ with st.sidebar:
         (p/'holdings.json').write_text(json.dumps(sample, ensure_ascii=False, indent=2), encoding='utf-8')
         st.success("data/portfolio/holdings.json créé")
     top_n = st.slider("Top N (proposition)", 1, 10, 5)
+    mode = st.selectbox("Méthode de pondération", ["Égal‑pondéré","Proportionnel au score"], index=0)
 
 hold = _load_holdings()
 st.subheader("Positions actuelles")
@@ -54,12 +55,20 @@ else:
         if top.empty:
             st.info("Pas de données 1m")
         else:
-            prop_weight = round(1.0/len(top), 4)
-            prop = pd.DataFrame({
-                'ticker': top['ticker'],
-                'proposed_weight': [prop_weight]*len(top),
-                'final_score': top['final_score'].round(4)
-            })
+            if mode.startswith("Égal"):
+                weights = [round(1.0/len(top), 6)]*len(top)
+            else:
+                sc = top['final_score'].clip(lower=0).astype(float)
+                ssum = float(sc.sum()) or 1.0
+                weights = [round(float(v/ssum), 6) for v in sc]
+            prop = pd.DataFrame({'ticker': top['ticker'], 'proposed_weight': weights, 'final_score': top['final_score'].round(4)})
             st.dataframe(prop, use_container_width=True)
             st.caption("Poids égal‑pondéré; ajustez selon votre profil de risque.")
-
+            # export buttons
+            try:
+                csv_bytes = prop.to_csv(index=False).encode('utf-8')
+                st.download_button("Exporter pondérations (CSV)", data=csv_bytes, file_name="portfolio_proposed.csv", mime="text/csv")
+                out_json = prop.to_dict(orient='records')
+                st.download_button("Exporter pondérations (JSON)", data=json.dumps(out_json, ensure_ascii=False, indent=2), file_name="portfolio_proposed.json", mime="application/json")
+            except Exception:
+                pass
