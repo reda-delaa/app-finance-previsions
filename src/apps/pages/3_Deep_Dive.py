@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys as _sys
 import streamlit as st
+from ui.shell import page_header, page_footer
 import pandas as pd
 
 SRC = Path(__file__).resolve().parents[2]
@@ -16,7 +17,8 @@ import datetime as dt
 import ta
 
 st.set_page_config(page_title="Deep Dive — Finance Agent", layout="wide")
-st.title("🔎 Deep Dive — Analyse d'un titre")
+page_header(active="user")
+st.subheader("🔎 Deep Dive — Analyse d'un titre")
 
 with st.sidebar:
     st.header("Sélection")
@@ -28,15 +30,16 @@ if run and ticker:
     with st.spinner("Construction du snapshot..."):
         snap = build_snapshot(regions=["US","INTL"], window=window, ticker=ticker.upper(), limit=200)
     feats = snap.get("features", {})
-    st.subheader("Features")
-    st.json(feats)
+    with st.expander("Détails des features (JSON)"):
+        st.json(feats)
     st.subheader("Prévisions")
     cols = st.columns(3)
     for i, h in enumerate(["1w","1m","1y"]):
         f = forecast_ticker(ticker.upper(), horizon=h, features=feats).to_dict()
         with cols[i]:
             st.metric(label=f"{h} direction", value=f["direction"], delta=f"conf={f['confidence']}")
-            st.json({k:v for k,v in f.items() if k != "drivers"})
+            with st.expander("JSON prévision"):
+                st.json({k:v for k,v in f.items() if k != "drivers"})
     st.subheader("News (récents)")
     news = snap.get("news", [])
     if news:
@@ -111,3 +114,6 @@ if run and ticker:
                         'ret_6m': last_pct(s, 126),
                     })
                 st.dataframe(pd.DataFrame(rows), use_container_width=True)
+else:
+    st.info("Entrez un ticker (ex: AAPL) puis cliquez Analyser pour afficher la fiche complète (features, prévisions, news, techniques, pairs).")
+page_footer()
