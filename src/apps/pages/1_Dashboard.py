@@ -119,6 +119,79 @@ try:
 except Exception:
     pass
 
+# ---- Final Top‑5 (1m) and Macro Regime badge + quick metrics ----
+try:
+    import pandas as _pd
+    from pathlib import Path as _P
+    # final top‑N if available
+    parts = sorted(_P('data/forecast').glob('dt=*/final.parquet'))
+    if parts:
+        fdf = _pd.read_parquet(parts[-1])
+        if not fdf.empty:
+            sel = fdf[fdf['horizon']=='1m'].sort_values('final_score', ascending=False).head(5)
+            if not sel.empty:
+                st.subheader("Final Top‑5 (1m)")
+                st.dataframe(sel[['ticker','final_score']].reset_index(drop=True), use_container_width=True)
+    # macro regime badge
+    reg = sorted(_P('data/macro/regime').glob('dt=*/regime.json'))
+    if reg:
+        import json as _json
+        robj = _json.loads(_P(reg[-1]).read_text(encoding='utf-8'))
+        pr = robj.get('probs') or {}
+        if pr:
+            top_name, top_p = sorted(pr.items(), key=lambda x: -x[1])[0]
+            c1, c2 = st.columns(2)
+            with c1:
+                st.metric("Régime macro dominant", top_name)
+            with c2:
+                st.metric("Confiance (≈)", f"{int((top_p or 0)*100)}%")
+    # simple backtest card (Top‑N hit rate over last 90 days)
+    if have_files("data/forecast/dt=*/forecasts.parquet"):
+        dfb = query_duckdb("select * from read_parquet('data/forecast/dt=*/forecasts.parquet') where horizon='1m' order by dt")
+        if not dfb.empty:
+            dfb['dt'] = _pd.to_datetime(dfb['dt'], errors='coerce')
+            end = dfb['dt'].max(); start = end - _pd.Timedelta(days=90)
+            dfb = dfb[(dfb['dt']>=start)&(dfb['dt']<=end)].copy()
+            if not dfb.empty:
+                dir_map = {"up":1.0,"flat":0.0,"down":-1.0}
+                dfb['dir_base'] = dfb['direction'].map(dir_map).fillna(0.0)
+                score = dfb['dir_base']*dfb['confidence'].astype(float) + 0.5*dfb['expected_return'].fillna(0.0).astype(float)
+                dfb['score'] = score
+                H=21
+                def _realized(t, d):
+                    p = _P('data/prices')/f"ticker={t}"/'prices.parquet'
+                    if not p.exists(): return None
+                    try:
+                        dd = _pd.read_parquet(p)
+                        if 'date' in dd.columns:
+                            dd['date'] = _pd.to_datetime(dd['date'], errors='coerce'); dd = dd.set_index('date')
+                        if dd.empty or 'Close' not in dd.columns: return None
+                        idx = dd.index.get_loc(d, method='nearest')
+                    except Exception:
+                        aft = dd[dd.index>=d];
+                        if aft.empty: return None
+                        idx = dd.index.get_loc(aft.index[0])
+                    j = min(len(dd)-1, idx+H)
+                    return float(dd['Close'].iloc[j]/dd['Close'].iloc[idx] - 1.0)
+                daily=[]
+                for d, sdf in dfb.groupby(dfb['dt'].dt.date):
+                    sdf = sdf.sort_values('score', ascending=False).head(5)
+                    rets=[]
+                    for _, r in sdf.iterrows():
+                        rr = _realized(str(r['ticker']), _pd.Timestamp(d))
+                        if rr is not None: rets.append(rr)
+                    if rets:
+                        daily.append(_pd.Series({'dt':str(d),'mean_ret':float(_pd.Series(rets).mean())}))
+                if daily:
+                    dd = _pd.DataFrame(daily)
+                    hr = float((dd['mean_ret']>0).mean()) if not dd.empty else 0.0
+                    avg = float(dd['mean_ret'].mean()) if not dd.empty else 0.0
+                    c1, c2 = st.columns(2)
+                    with c1: st.metric("Hit‑rate 90j (Top‑5)", f"{int(hr*100)}%")
+                    with c2: st.metric("Moy. panier 1m/j", f"{avg*100:.2f}%")
+except Exception:
+    pass
+
 # Optional: Cumulative Top‑N performance chart if parquet forecasts + cached prices exist
 try:
     if have_files("data/forecast/dt=*/forecasts.parquet"):

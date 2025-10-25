@@ -360,12 +360,31 @@ def investigate_macro(theme: str = "gold miners & macro context") -> Dict[str, A
         locale="fr-FR",
         meta={"kind": "investigation", "theme": theme},
     )
-    res = agent.analyze(data)
+    # Prefer ensemble with adjudication; fallback to single
+    try:
+        ens = agent.analyze_ensemble(data, top_n=3, force_power=True, adjudicate=True)
+        res = None
+        # choose best text to show: judge decision if available else first ok result's answer
+        answer_txt = (ens.get('adjudication') or {}).get('decision') or ""
+        if not answer_txt:
+            for r in (ens.get('results') or []):
+                if r.get('ok') and r.get('answer'):
+                    answer_txt = r['answer']; break
+        parsed_obj = None
+        # try to pick a parsed JSON from any ok result
+        for r in (ens.get('results') or []):
+            pj = r.get('parsed')
+            if pj:
+                parsed_obj = pj; break
+        res = {"answer": answer_txt, "parsed": parsed_obj, "ensemble": ens}
+    except Exception:
+        res = agent.analyze(data)
     report = {
         "asof": _iso(),
         "macro": macro,
         "answer": res.get("answer"),
         "parsed": res.get("parsed"),
+        "ensemble": res.get("ensemble") if isinstance(res, dict) else None,
     }
     outdir = Path("data/reports") / f"dt={datetime.utcnow().strftime('%Y%m%d')}"
     outdir.mkdir(parents=True, exist_ok=True)
@@ -410,8 +429,13 @@ def discover_topics_via_llm(watchlist: List[str]) -> List[str]:
         locale="fr-FR",
         meta={"kind": "topic_discovery"},
     )
-    res = agent.analyze(data)
-    text = (res or {}).get("answer", "")
+    # Prefer ensemble + adjudication for robust prompts
+    try:
+        res = agent.analyze_ensemble(data, top_n=3, force_power=True, adjudicate=True)
+        text = ((res or {}).get('adjudication') or {}).get('decision') or (res or {}).get('answer','')
+    except Exception:
+        res = agent.analyze(data)
+        text = (res or {}).get("answer", "")
     queries: List[str] = []
     if text:
         for line in text.splitlines():
@@ -419,7 +443,7 @@ def discover_topics_via_llm(watchlist: List[str]) -> List[str]:
             if len(s) >= 4 and len(queries) < 10 and not s.lower().startswith("#"):
                 queries.append(s)
     # persist
-    out = {"asof": _iso(), "macro": macro, "watchlist": watchlist, "queries": queries}
+    out = {"asof": _iso(), "macro": macro, "watchlist": watchlist, "queries": queries, "ensemble": res if isinstance(res, dict) else None}
     outdir = Path("data/reports") / f"dt={datetime.utcnow().strftime('%Y%m%d')}"
     outdir.mkdir(parents=True, exist_ok=True)
     (outdir / "topics.json").write_text(json.dumps(_clean_json(out), ensure_ascii=False, indent=2), encoding="utf-8")
