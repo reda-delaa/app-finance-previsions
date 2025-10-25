@@ -16,6 +16,7 @@ MCP & Codex CLI
 Docs Map
 - Product: `product/backlog.md` — EPICs, user stories, acceptance criteria.
 - Architecture: `architecture/vision.md`, `architecture/c4.md`, `architecture/refactor_plan.md`.
+- Architecture (UI migration): `architecture/dash_migration.md` — plan de migration Streamlit → Dash.
 - UI: `ui/ui_audit.md` — audit, decisions, and action plan.
 - Progress: `PROGRESS.md` — what’s done, what’s next, run discipline.
 - QA: `qa/ATLAS_QA.md` — procedure for ATLAS to verify commits, restart UI, test pages, and report.

@@ -56,9 +56,9 @@ Recent additions
  - SearXNG local: `ops/web/searxng-local/` + Make (`searx-up`, `searx-down`, `searx-logs`), `SEARXNG_LOCAL_URL` prioritaire dans `web_navigator`
 
 Next (high priority)
-1) Macro series expansion: add PMI/ISM, LEI, VIX, commodity baskets; quality coverage checks
-2) Beginner mode (tooltips + simplified wording on key pages)
-3) Hook earnings events into Alerts (per‑ticker upcoming reminders)
+1) Migration UI → Dash (phases 0–2): squelette app, Dashboard/Signals/Portfolio/Observability, thème Bootstrap sombre
+2) Macro series expansion: add PMI/ISM, LEI, VIX, commodity baskets; quality coverage checks
+3) Beginner mode (tooltips + simplified wording on key pages)
 
 Next (nice to have)
 - Beginner mode (tooltips + simplified fields across pages)
@@ -72,6 +72,9 @@ How to run
 - Backfill 5y prices: `make backfill-prices`
 - UI: `PYTHONPATH=src streamlit run src/apps/agent_app.py`
 - Forecast agents: `make equity-forecast` then `make forecast-aggregate`
+- Macro & freshness: `make macro-forecast` and `make update-monitor`
+Dash migration
+- Plan: `docs/architecture/dash_migration.md`
 Planned/Started (agents)
 - Equity forecast agent: generates dt=YYYYMMDD/forecasts.parquet with baseline (momentum/vol) for 1w/1m/1y.
 - Forecast aggregator: reads latest forecasts.parquet, computes final_score, writes dt=YYYYMMDD/final.parquet.
