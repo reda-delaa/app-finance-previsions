@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys as _sys
 import streamlit as st
+from ui.shell import page_header, page_footer
 import pandas as pd
 
 SRC = Path(__file__).resolve().parents[2]
@@ -11,7 +12,8 @@ from analytics.market_intel import build_snapshot
 from analytics.forecaster import forecast_ticker
 
 st.set_page_config(page_title="Forecasts — Finance Agent", layout="wide")
-st.title("🔮 Forecasts — Multi-tickers")
+page_header(active="user")
+st.subheader("🔮 Forecasts — Multi‑tickers")
 
 with st.sidebar:
     st.header("Paramètres")
@@ -28,4 +30,6 @@ if run:
         rows.append({"ticker": t, **{f"f_{k}": v for k, v in f.items() if k != "drivers"}})
     df = pd.DataFrame(rows)
     st.dataframe(df, use_container_width=True)
-
+else:
+    st.info("Indiquez des tickers et cliquez Lancer pour calculer des prévisions par horizon.")
+page_footer()
