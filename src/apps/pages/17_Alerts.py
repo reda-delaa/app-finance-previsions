@@ -35,6 +35,11 @@ else:
             df['sev_rank'] = df['sev'].map(lambda x: sev_order.get(str(x).lower(), 9))
             df = df.sort_values(['sev_rank','section'])
             st.dataframe(df[['section','sev','msg']], use_container_width=True)
+            try:
+                csv_bytes = df[['section','sev','msg']].to_csv(index=False).encode('utf-8')
+                st.download_button("Exporter issues (CSV)", data=csv_bytes, file_name="alerts_quality.csv", mime="text/csv")
+            except Exception:
+                pass
         else:
             st.success("Aucun problème détecté.")
     except Exception as e:
@@ -42,6 +47,7 @@ else:
 
 st.divider()
 st.subheader("Mouvements récents (watchlist)")
+thr = st.slider("Seuil absolu (%, 1j)", 0.0, 5.0, 1.0, 0.1)
 b = _latest('data/forecast/dt=*/brief.json')
 if not b:
     st.info("Aucun brief.json récent. Lancez agent_daily.")
@@ -68,7 +74,12 @@ else:
             dfw['abs'] = dfw['d1'].abs()
             dfw = dfw.sort_values('abs', ascending=False).drop(columns=['abs'])
             dfw['d1_%'] = (dfw['d1']*100).round(2)
-            st.dataframe(dfw[['ticker','d1_%']], use_container_width=True)
+            filt = dfw[dfw['d1_%'].abs() >= thr]
+            st.dataframe((filt if not filt.empty else dfw)[['ticker','d1_%']], use_container_width=True)
+            try:
+                csv_bytes = (filt if not filt.empty else dfw)[['ticker','d1_%']].to_csv(index=False).encode('utf-8')
+                st.download_button("Exporter mouvements (CSV)", data=csv_bytes, file_name="alerts_moves.csv", mime="text/csv")
+            except Exception:
+                pass
     except Exception as e:
         st.warning(f"Lecture brief impossible: {e}")
-
