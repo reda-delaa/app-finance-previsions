@@ -55,10 +55,15 @@ Recent additions
  - CI: `.github/workflows/ci.yml` exécute `make test`, UI smoke et `sec-audit`, publie les artifacts
  - SearXNG local: `ops/web/searxng-local/` + Make (`searx-up`, `searx-down`, `searx-logs`), `SEARXNG_LOCAL_URL` prioritaire dans `web_navigator`
 
-Next (high priority)
-1) Migration UI → Dash (phases 0–2): squelette app, Dashboard/Signals/Portfolio/Observability, thème Bootstrap sombre
-2) Macro series expansion: add PMI/ISM, LEI, VIX, commodity baskets; quality coverage checks
-3) Beginner mode (tooltips + simplified wording on key pages)
+Sprint-5: Migration completion and advanced features
+Objectives
+- Migrate remaining Streamlit pages: News/Aggregation, Deep Dive analysis, Forecasts multi-ticker, Backtests/Evaluation, Reports, Quality dashboard, LLM Scoreboard, Notes & Memos.
+- Implement backtest_agent.py and evaluation_agent.py with Dash pages for performance curves and metrics (MAE, RMSE).
+- Enhance macro series: add PMI/ISM, LEI, VIX, commodity baskets; quality coverage checks ≥5 years.
+- Advanced UX: beginner mode with tooltips, alerts badge in navbar, "Why" explanations for Portfolio tilts.
+- MCP integration: fix web-eval-agent connection, integrate automated UX testing in CI pipeline.
+- Documentation: create docs/architecture/dash_overview.md, update README with new pages and MCP usage.
+- Tests: comprehensive smoke and MCP tests on all new pages; manual validation with fresh data.
 
 Next (nice to have)
 - Beginner mode (tooltips + simplified fields across pages)
@@ -88,13 +93,19 @@ Objectives
 - Observability: badge global (green=OK recent data, yellow=data stale, red=server down), 30s auto-refresh, link to Agents Status.
 - Docs: Sprint-4 section in PROGRESS.md, update README with dash-mcp-test usage.
 - Tests: smoke 200 on all routes; manual checks with fresh data.
-Delivered (in progress - starting sprint)
-- Sidebar multipage + thème Bootstrap sombre (Cyborg).
-- Dashboard: sélecteur de date (dt=YYYYMMDD), Top‑10 Final (1m) avec états vides FR, KPIs Macro (CPI YoY, pente 10Y‑2Y, prob. récession).
-- Signals: DataTable triable/filtrable/exportable, filtre d’horizon (1w/1m/1y), surbrillance WATCHLIST.
-- Portfolio: contrôles Top‑N et pondération (égalitaire vs proportionnelle aux scores), états vides robustes.
-- Observability: ping HTTP Dash + log live; scripts dash start/stop/restart fiables (Makefile).
-- Agents Status: page dédiée listant dernières partitions forecasts/final/macro + freshness.json.
+Delivered (completed)
+- ✅ Sidebar multipage + thème Bootstrap sombre (Cyborg).
+- ✅ Dashboard: sélecteur de date (dt=YYYYMMDD), Top‑10 Final (1m) avec états vides FR, KPIs Macro (CPI YoY, pente 10Y‑2Y, prob. récession).
+- ✅ Signals: DataTable triable/filtrable/exportable, filtre d’horizon (1w/1m/1y), surbrillance WATCHLIST.
+- ✅ Portfolio: contrôles Top‑N et pondération (égalitaire vs proportionnelle), états vides robustes.
+- ✅ Observability: ping HTTP Dash + log live; scripts dash start/stop/restart fiables (Makefile).
+- ✅ Agents Status: page dédiée listant dernières partitions forecasts/final/macro + freshness.json.
+- ✅ Macro pages: Regimes/Risk/Recession with Plotly charts, trend badges, data tables; robust fallbacks.
+- ✅ Watchlist filter: callback corrected, dynamic headers, error handling for empty results.
+- ✅ MCP script: stdio fixed for error visibility, screenshot save enabled.
+- ✅ Data cleanup: all generated files removed from git tracking, .gitignore updated.
+- ✅ API operative.sh: configured and functional for web-eval-agent MCP.
+- ✅ Tests: smoke 200 on all routes; manual validation with fresh data.
 
 How to validate Dash quickly
 - Générer données: `make equity-forecast && make forecast-aggregate && make macro-forecast && make update-monitor`.
