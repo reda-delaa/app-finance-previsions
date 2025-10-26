@@ -64,6 +64,10 @@ Objectives
 - MCP integration: fix web-eval-agent connection, integrate automated UX testing in CI pipeline.
 - Documentation: create docs/architecture/dash_overview.md, update README with new pages and MCP usage.
 - Tests: comprehensive smoke and MCP tests on all new pages; manual validation with fresh data.
+Delivered (in progress)
+- ✅ News page: data loading from news partitions or JSONL, sector filtering, search, AI summary placeholder, table display with fallbacks.
+- ✅ Integration: /news route added to sidebar navigation in Analyse & Prévisions section.
+- ✅ Tests: smoke 200 on all routes including /news; MCP script corrected for error visibility.
 
 Next (nice to have)
 - Beginner mode (tooltips + simplified fields across pages)
