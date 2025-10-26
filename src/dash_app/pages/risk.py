@@ -11,37 +11,42 @@ def _risk_chart(df: pd.DataFrame) -> dcc.Graph:
     if df is None or df.empty:
         return dcc.Graph()
 
-    # Detect available columns for plotting
+    # Detect available columns for plotting, map to actual data
     plot_cols = []
-    if 'vix' in df.columns:
-        plot_cols.append(('VIX Index', 'vix'))
-    if 'credit_spread' in df.columns or 'bamlh0a0hym2' in df.columns:
-        col = 'credit_spread' if 'credit_spread' in df.columns else 'bamlh0a0hym2'
-        plot_cols.append(('Spread Crédit', col))
-    if 'drawdown_prob' in df.columns:
-        plot_cols.append(('Prob. Drawdown', 'drawdown_prob'))
-    if 'risk_index' in df.columns:
-        plot_cols.append(('Indice Risque', 'risk_index'))
-    if 'nfci' in df.columns or 'nfc_i' in df.columns:
-        col = 'nfci' if 'nfci' in df.columns else 'nfc_i'
-        plot_cols.append(('NFCI Risk', col))
-    if 'unrate' in df.columns:
-        plot_cols.append(('Taux Chômage (%)', 'unrate'))
+    if 'unemployment' in df.columns:
+        plot_cols.append(('Chômage (%)', 'unemployment'))
+    # Note: VIX, spreads, etc. not yet in current macro_forecast data
 
-    if not plot_cols:
-        return dcc.Graph(figure=go.Figure().add_annotation(text="Aucun indicateur de risque détecté", showarrow=False))
-
-    fig = go.Figure()
-    for label, col in plot_cols:
-        fig.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines', name=label))
-
-    fig.update_layout(
-        title="Indicateurs de Risque Macroéconomique",
-        xaxis_title="Période",
-        yaxis_title="Valeur",
-        template='plotly_dark'
-    )
-    return dcc.Graph(figure=fig)
+    # If data is by horizon, plot bar chart
+    if 'horizon' in df.columns and len(df) <= 5:
+        fig = go.Figure()
+        for i, (label, col) in enumerate(plot_cols):
+            fig.add_trace(go.Bar(
+                x=df['horizon'],
+                y=df[col],
+                name=label,
+                offsetgroup=i
+            ))
+        fig.update_layout(
+            title="Indicateurs-Risque par Horizon",
+            xaxis_title="Horizon",
+            yaxis_title=" Valeur",
+            template='plotly_dark',
+            barmode='group'
+        )
+        return dcc.Graph(figure=fig)
+    else:
+        # Fallback to line chart
+        fig = go.Figure()
+        for label, col in plot_cols:
+            fig.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines+markers', name=label))
+        fig.update_layout(
+            title="Indicateurs de Risque Macroéconomique",
+            xaxis_title="Période",
+            yaxis_title="Valeur",
+            template='plotly_dark'
+        )
+        return dcc.Graph(figure=fig)
 
 
 def _risk_badge(last_val: float | None, label: str) -> dbc.Badge:
@@ -84,18 +89,8 @@ def _risk_container() -> dbc.Container:
 
         # Badges
         badges = []
-        if 'vix' in df.columns:
-            badges.append(_risk_badge(df['vix'].iloc[-1], "VIX"))
-        if 'credit_spread' in df.columns or 'bamlh0a0hym2' in df.columns:
-            col = 'credit_spread' if 'credit_spread' in df.columns else 'bamlh0a0hym2'
-            badges.append(_risk_badge(df[col].iloc[-1], "Spread Crédit"))
-        if 'drawdown_prob' in df.columns:
-            badges.append(_risk_badge(df['drawdown_prob'].iloc[-1], "Drawdown Prob"))
-        if 'nfci' in df.columns or 'nfc_i' in df.columns:
-            col = 'nfci' if 'nfci' in df.columns else 'nfc_i'
-            badges.append(_risk_badge(df[col].iloc[-1], "NFCI"))
-        if 'unrate' in df.columns:
-            badges.append(_risk_badge(df['unrate'].iloc[-1], "Chômage"))
+        if 'unemployment' in df.columns:
+            badges.append(_risk_badge(df['unemployment'].iloc[-1], "Chômage"))
 
         # Table
         key_cols = ['vix', 'credit_spread', 'bamlh0a0hym2', 'drawdown_prob', 'risk_index', 'nfci', 'nfc_i']

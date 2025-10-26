@@ -71,6 +71,7 @@ def _logs_card() -> dbc.Card:
 def layout():
     return html.Div([
         html.H3("Observability (Dash)"),
+        html.Small("Voir docs/README.md pour guide operational complet."),
         dbc.Row([
             dbc.Col(_ui_health_card(), md=6),
             dbc.Col(_freshness_card(), md=6),

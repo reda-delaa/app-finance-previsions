@@ -161,8 +161,8 @@ dash-stop:
 dash-restart:
 	bash scripts/dash_restart_bg.sh
 
-.PHONY: dash-smoke-mcp
-dash-smoke-mcp:
+.PHONY: dash-mcp-test
+dash-mcp-test:
 	node ops/ui/mcp_dash_smoke.mjs || true
 
 .PHONY: ui-watch

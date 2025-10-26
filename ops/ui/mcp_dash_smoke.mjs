@@ -1,5 +1,5 @@
-// MCP Playwright smoke for Dash UI
-// Requires: npm i -D @modelcontextprotocol/sdk
+// MCP UX Evaluation using web-eval-agent for Dash UI
+// Requires: uv installed
 
 import { spawn } from 'node:child_process'
 import { writeFile, mkdir } from 'node:fs/promises'
@@ -15,69 +15,75 @@ try {
 }
 
 const DASH_BASE = (process.env.DASH_BASE || `http://localhost:${process.env.AF_DASH_PORT||'8050'}`).replace(/\/$/, '')
-const PATHS = ['/', '/dashboard', '/signals', '/portfolio', '/observability']
+const PAGES = [
+  { path: '/', name: 'Root (redirect to Dashboard)' },
+  { path: '/dashboard', name: 'Dashboard' },
+  { path: '/signals', name: 'Signals' },
+  { path: '/portfolio', name: 'Portfolio' },
+  { path: '/agents', name: 'Agents Status' },
+  { path: '/observability', name: 'Observability' },
+  { path: '/regimes', name: 'Regimes' },
+  { path: '/risk', name: 'Risk' },
+  { path: '/recession', name: 'Recession' },
+]
 
-function findTool(tools, names) {
-  const lower = tools.map(t => ({ name: t.name, desc: (t.description||'') }))
-  for (const n of names) {
-    const hit = lower.find(t => t.name.toLowerCase().includes(n))
-    if (hit) return hit.name
+async function evaluatePage(client, url, pageName, task) {
+  try {
+    const res = await client.callTool({ name: 'web_eval_agent', arguments: { url, task: task(pageName), headless_browser: true } })
+    const text = ((res?.content || []).find(c => c.type === 'text') || {}).text || ''
+    const image = (res?.content || []).find(c => c.type === 'image')
+    return { status: 'ok', evaluation: text, screenshot: image ? image : null }
+  } catch (e) {
+    return { status: 'error', evaluation: String(e) }
   }
-  return null
 }
 
 async function main() {
-  const server = spawn('npx', ['@playwright/mcp'], { stdio: ['pipe','pipe','inherit'] })
-  server.on('error', err => { console.error(JSON.stringify({ ok:false, error:'spawn-failed', detail: String(err) })); process.exit(1) })
+  const server = spawn('uvx', ['--refresh-package', 'webEvalAgent', '--from', 'git+https://github.com/Operative-Sh/web-eval-agent.git', 'webEvalAgent'], { stdio: ['pipe','pipe','inherit'] })
+  server.on('error', err => { console.error(JSON.stringify({ ok:false, error:'spawn-web-eval-agent-failed', detail: String(err) })); process.exit(1) })
 
   const transport = new StdioClientTransport(server.stdin, server.stdout)
-  const client = new Client({ name: 'dash-smoke-mcp', version: '0.1.0' }, { capabilities: {} })
+  const client = new Client({ name: 'dash-ux-eval-mcp', version: '0.1.0' }, { capabilities: {} })
   await client.connect(transport)
 
-  const { tools } = await client.listTools()
-  const toolNames = tools.map(t => t.name)
-  const navTool = findTool(tools, ['goto','navigate','page_goto'])
-  const shotTool = findTool(tools, ['screenshot','page_screenshot','screencap'])
-  if (!navTool) {
-    console.error(JSON.stringify({ ok:false, error:'no-nav-tool', tools: toolNames }))
-    process.exit(2)
-  }
-
-  const outDir = 'artifacts/smoke/dash_mcp'
-  await mkdir(outDir, { recursive: true })
   const results = []
+  const outDir = 'artifacts/smoke/dash_eval'
+  await mkdir(outDir, { recursive: true })
 
-  for (const path of PATHS) {
+  const taskGenerator = (pageName) => `
+Evaluate the user experience of the financial dashboard ${pageName} page.
+Check for any errors or missing elements.
+For macro pages (Regimes/Risk/Recession), ensure Plotly charts are rendered with multi-series data (bars by horizon).
+For all pages, verify badges and tables are displayed.
+If charts are missing, note that data might not be loaded.
+Assess overall usability and report any issues.
+`
+
+  for (const { path, name } of PAGES) {
     const url = `${DASH_BASE}${path}`
-    let status = 'ok'
-    const errors = []
-    try {
-      await client.callTool({ name: navTool, arguments: { url } })
-      if (shotTool) {
-        const res = await client.callTool({ name: shotTool, arguments: {} })
-        const item = (res?.content || [])[0]
-        if (item && item.type === 'image') {
-          const b64 = item.data || item.base64 || ''
-          const buf = Buffer.from(b64, 'base64')
-          const fname = (path === '/' ? 'root' : path.replace(/^\//,'')) + '.png'
-          await writeFile(join(outDir, fname), buf)
-        }
+    console.error(`Evaluating ${name} at ${url}`)
+    const result = await evaluatePage(client, url, name, taskGenerator)
+    results.push({ page: name, path, url, ...result })
+
+    // Save screenshot if available
+    if (result.screenshot) {
+      const b64 = result.screenshot.data || result.screenshot.base64 || ''
+      if (b64) {
+        const buf = Buffer.from(b64, 'base64')
+        const fname = name.replace(/\s+/g,'_').toLowerCase() + '.png'
+        await writeFile(join(outDir, fname), buf)
       }
-    } catch (e) {
-      status = 'error'
-      errors.push(String(e))
     }
-    results.push({ path, url, status, errors })
   }
 
   await client.close()
   server.kill('SIGTERM')
-  const report = { ok:true, base: DASH_BASE, results }
-  const repPath = join('data','reports',`dt=${new Date().toISOString().slice(0,10).replace(/-/g,'')}`,'dash_smoke_mcp_report.json')
+
+  const report = { ok:true, base: DASH_BASE, timestamp: new Date().toISOString(), results }
+  const repPath = join('data','reports',`dt=${new Date().toISOString().slice(0,10).replace(/-/g,'')}`,'dash_ux_eval_report.json')
   await mkdir(repPath.substring(0, repPath.lastIndexOf('/')), { recursive: true })
   await writeFile(repPath, JSON.stringify(report, null, 2), 'utf-8')
-  console.log(JSON.stringify({ ok:true, report: repPath }))
+  console.log(JSON.stringify({ ok:true, message: 'UX evaluation complete', report: repPath, screenshots: outDir }))
 }
 
 main().catch(e => { console.error(JSON.stringify({ ok:false, error:String(e) })); process.exit(1) })
-

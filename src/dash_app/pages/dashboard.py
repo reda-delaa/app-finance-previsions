@@ -172,9 +172,12 @@ def on_dt_change(dt, wl):
                     df = pd.read_parquet(target)
                     view = df[(df.get('horizon')=='1m') & (df.get('ticker').isin(watch))].sort_values('final_score', ascending=False)
                     cols_ok = {'ticker','final_score'}.issubset(view.columns)
-                    if cols_ok and not view.empty:
-                        table = dbc.Table.from_dataframe(view[['ticker','final_score']].reset_index(drop=True), striped=True, bordered=False, hover=True, size='sm')
-                        return dbc.Card([dbc.CardHeader("Top (watchlist, 1m)"), dbc.CardBody(table)])
+                    if cols_ok:
+                        if view.empty:
+                            table = dbc.Alert("Aucun ticker en watchlist trouvé dans cette partition.", color="info")
+                        else:
+                            table = dbc.Table.from_dataframe(view[['ticker','final_score']].reset_index(drop=True), striped=True, bordered=False, hover=True, size='sm')
+                        return dbc.Card([dbc.CardHeader(f"Top watchlist ({', '.join(sorted(watch))})"), dbc.CardBody(table)])
             except Exception:
                 pass
         return card

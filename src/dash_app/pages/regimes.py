@@ -12,38 +12,43 @@ def _regimes_chart(df: pd.DataFrame) -> dcc.Graph:
     if df is None or df.empty:
         return dcc.Graph()
 
-    # Detect available columns for plotting
+    # Detect available columns for plotting, map to actual data columns
     plot_cols = []
-    if 'cpi_yoy' in df.columns:
-        plot_cols.append(('Inflation (YoY %)', 'cpi_yoy'))
-    if 'slope_10y_2y' in df.columns:
-        plot_cols.append(('Courbe taux (10Y-2Y)', 'slope_10y_2y'))
-    if 'lei' in df.columns:
-        plot_cols.append(('Indice Leading (LEI)', 'lei'))
-    if 'pmi' in df.columns:
-        plot_cols.append(('PMI', 'pmi'))
-    if 'ism' in df.columns:
-        plot_cols.append(('ISM', 'ism'))
-    if 'nfc_i' in df.columns or 'nfci' in df.columns:
-        col = 'nfc_i' if 'nfc_i' in df.columns else 'nfci'
-        plot_cols.append(('NFCI Risk', col))
-    if 'gdpc1_yoy' in df.columns:
-        plot_cols.append(('PIB YoY (%)', 'gdpc1_yoy'))
+    if 'inflation_yoy' in df.columns:
+        plot_cols.append(('Inflation YoY', 'inflation_yoy'))
+    if 'yield_curve_slope' in df.columns:
+        plot_cols.append(('Pente courbe taux', 'yield_curve_slope'))
 
-    if not plot_cols:
-        return dcc.Graph(figure=go.Figure().add_annotation(text="Aucune série macro détectée pour les régimes", showarrow=False))
-
-    fig = go.Figure()
-    for label, col in plot_cols:
-        fig.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines', name=label))
-
-    fig.update_layout(
-        title="Indicateurs de Régime Macroéconomique",
-        xaxis_title="Période",
-        yaxis_title="Valeur",
-        template='plotly_dark'
-    )
-    return dcc.Graph(figure=fig)
+    # If data is by horizon (not time series), plot bar for each horizon
+    if 'horizon' in df.columns and len(df) <= 5:
+        fig = go.Figure()
+        for i, (label, col) in enumerate(plot_cols):
+            fig.add_trace(go.Bar(
+                x=df['horizon'],
+                y=df[col],
+                name=label,
+                offsetgroup=i
+            ))
+        fig.update_layout(
+            title="Indicateurs-Régimes par Horizon",
+            xaxis_title="Horizon",
+            yaxis_title="Valeur",
+            template='plotly_dark',
+            barmode='group'
+        )
+        return dcc.Graph(figure=fig)
+    else:
+        # Fallback to line chart if multiple time points
+        fig = go.Figure()
+        for label, col in plot_cols:
+            fig.add_trace(go.Scatter(x=df.index, y=df[col], mode='lines+markers', name=label))
+        fig.update_layout(
+            title="Indicateurs de Régime Macroéconomique",
+            xaxis_title="Période",
+            yaxis_title="Valeur",
+            template='plotly_dark'
+        )
+        return dcc.Graph(figure=fig)
 
 
 def _trend_badge(last_val: float | None, label: str) -> dbc.Badge:
@@ -80,16 +85,10 @@ def _body() -> dbc.Container:
 
         # Badges
         badges = []
-        if 'cpi_yoy' in df.columns:
-            badges.append(_trend_badge(df['cpi_yoy'].iloc[-1], "Inflation"))
-        if 'slope_10y_2y' in df.columns:
-            badges.append(_trend_badge(df['slope_10y_2y'].iloc[-1], "Courbe"))
-        if 'lei' in df.columns:
-            badges.append(_trend_badge(df['lei'].iloc[-1], "LEI"))
-        if 'pmi' in df.columns:
-            badges.append(_trend_badge(df['pmi'].iloc[-1], "PMI"))
-        if 'ism' in df.columns:
-            badges.append(_trend_badge(df['ism'].iloc[-1], "ISM"))
+        if 'inflation_yoy' in df.columns:
+            badges.append(_trend_badge(df['inflation_yoy'].iloc[-1], "Inflation"))
+        if 'yield_curve_slope' in df.columns:
+            badges.append(_trend_badge(df['yield_curve_slope'].iloc[-1], "Courbe"))
 
         # Table
         key_cols = ['cpi_yoy', 'slope_10y_2y', 'lei', 'pmi', 'ism', 'nfci']
