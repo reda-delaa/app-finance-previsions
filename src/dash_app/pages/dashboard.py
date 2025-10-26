@@ -155,31 +155,49 @@ def _parse_watchlist(raw: str | None) -> list[str]:
 @dash.callback(dash.Output('dash-top-final', 'children'), dash.Input('dash-date-select', 'value'), dash.Input('dash-watchlist','value'))
 def on_dt_change(dt, wl):
     try:
-        card = _top_final(dt)
-        # if watchlist provided, filter table content by tickers (render-level)
-        if isinstance(card, dbc.Card) and wl:
-            watch = set(_parse_watchlist(wl))
-            # attempt to rebuild filtered table from source parquet
-            try:
-                target = None
-                if dt:
-                    target = Path('data/forecast') / f'dt={dt}' / 'final.parquet'
-                else:
-                    parts = sorted(Path('data/forecast').glob('dt=*/final.parquet'))
-                    if parts:
-                        target = parts[-1]
-                if target and target.exists():
-                    df = pd.read_parquet(target)
-                    view = df[(df.get('horizon')=='1m') & (df.get('ticker').isin(watch))].sort_values('final_score', ascending=False)
-                    cols_ok = {'ticker','final_score'}.issubset(view.columns)
-                    if cols_ok:
-                        if view.empty:
-                            table = dbc.Alert("Aucun ticker en watchlist trouvé dans cette partition.", color="info")
-                        else:
-                            table = dbc.Table.from_dataframe(view[['ticker','final_score']].reset_index(drop=True), striped=True, bordered=False, hover=True, size='sm')
-                        return dbc.Card([dbc.CardHeader(f"Top watchlist ({', '.join(sorted(watch))})"), dbc.CardBody(table)])
-            except Exception:
-                pass
-        return card
+        # Parse watchlist first
+        watch = set(_parse_watchlist(wl)) if wl else set()
+
+        # Get the appropriate final.parquet
+        target = None
+        if dt:
+            target = Path('data/forecast') / f'dt={dt}' / 'final.parquet'
+        else:
+            parts = sorted(Path('data/forecast').glob('dt=*/final.parquet'))
+            if parts:
+                target = parts[-1]
+
+        if not target or not target.exists():
+            return dbc.Card(dbc.CardBody([html.Small("Aucun final.parquet trouvé.")]))
+
+        df = pd.read_parquet(target)
+        if df.empty:
+            return dbc.Card(dbc.CardBody([html.Small("final.parquet vide.")]))
+
+        # Filter by horizon and watchlist
+        view = df[df.get('horizon') == '1m']
+        if watch:
+            view = view[view.get('ticker').isin(watch)]
+
+        if view.empty:
+            return dbc.Card([
+                dbc.CardHeader(f"Top watchlist ({', '.join(sorted(watch))})" if watch else "Top 10 (Final, 1m)"),
+                dbc.CardBody(dbc.Alert("Aucun ticker trouvé dans cette partition.", color="info"))
+            ])
+
+        # Sort and take top 10
+        top = view.sort_values('final_score', ascending=False).head(10)
+
+        if 'ticker' not in top.columns or 'final_score' not in top.columns:
+            return dbc.Card(dbc.CardBody([html.Small("Colonnes ticker/final_score manquantes.")]))
+
+        table = dbc.Table.from_dataframe(
+            top[['ticker', 'final_score']].reset_index(drop=True),
+            striped=True, bordered=False, hover=True, size='sm'
+        )
+
+        header_text = f"Top watchlist ({', '.join(sorted(watch))})" if watch else "Top 10 (Final, 1m)"
+        return dbc.Card([dbc.CardHeader(header_text), dbc.CardBody(table)])
+
     except Exception as e:
-        return dbc.Card(dbc.CardBody([html.Small(f"Erreur Top Final: {e}")]))
+        return dbc.Card(dbc.CardBody([html.Small(f"Erreur Dashboard: {e}")]))

@@ -85,19 +85,19 @@ Assess overall usability and report any issues.
     const result = await evaluatePage(client, url, name, taskGenerator)
     results.push({ page: name, path, url, ...result })
 
-    // Save screenshot if available (注释: disabled to debug)
-    // if (result.screenshot && result.screenshot.data) {
-    //   const b64 = result.screenshot.data
-    //   if (b64 && typeof b64 === 'string') {
-    //     try {
-    //       const buf = Buffer.from(b64, 'base64')
-    //       const fname = ((name || 'unknown') + '').replace(/\s+/g,'_').toLowerCase() + '.png'
-    //       await writeFile('artifacts/smoke/dash_eval/' + fname, buf)
-    //     } catch (e) {
-    //       // Ignore screenshot save error
-    //     }
-    //   }
-    // }
+    // Save screenshot if available
+    if (result.screenshot && result.screenshot.data) {
+      const b64 = result.screenshot.data
+      if (b64 && typeof b64 === 'string') {
+        try {
+          const buf = Buffer.from(b64, 'base64')
+          const fname = (name ? name.replace(/[\s/]/g, '_').toLowerCase() : 'page') + '.png'
+          await writeFile(join(outDir, fname), buf)
+        } catch (e) {
+          console.error(`Screenshot save error for ${name}:`, e.message)
+        }
+      }
+    }
   }
 
   await client.close()
