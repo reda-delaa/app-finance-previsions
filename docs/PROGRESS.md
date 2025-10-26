@@ -67,7 +67,8 @@ Objectives
 Delivered (in progress)
 - ✅ News page: data loading from news partitions or JSONL, sector filtering, search, AI summary placeholder, table display with fallbacks.
 - ✅ Deep Dive page: ticker input with analysis, 5-year price charts with SMAs, forecasts table, news section, basic statistics.
-- ✅ Integration: /news and /deep_dive routes added to sidebar navigation in Analyse & Prévisions section.
+- ✅ Forecasts page: multi-ticker data loading from final.parquet, horizon/ticker filtering, sorting by score/ticker/horizon, summary statistics.
+- ✅ Integration: /news, /deep_dive, /forecasts routes added to sidebar navigation in Analyse & Prévisions section.
 - ✅ Tests: smoke 200 on all routes including new pages; MCP script corrected for error visibility.
 
 Next (nice to have)
