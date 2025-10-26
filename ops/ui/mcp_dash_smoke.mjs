@@ -44,7 +44,7 @@ async function evaluatePage(client, url, pageName, task) {
 
 async function main() {
   const server = spawn('uvx', ['--refresh-package', 'webEvalAgent', '--from', 'git+https://github.com/Operative-Sh/web-eval-agent.git', 'webEvalAgent'], {
-    stdio: ['pipe','pipe','pipe'],
+    stdio: ['pipe','pipe','inherit'],
     env: { ...process.env, OPERATIVE_API_KEY: process.env.OPERATIVE_API_KEY }
   })
   server.on('error', err => { console.error(JSON.stringify({ ok:false, error:'spawn-web-eval-agent-failed', detail: String(err) })); process.exit(1) })
