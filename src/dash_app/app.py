@@ -51,6 +51,7 @@ def sidebar() -> html.Div:
                 pills=True,
             ),
             html.Div(id='global-status-badge', className="mt-3"),
+            html.Small([dbc.NavLink("Détails", href="/agents", className="text-muted", style={"fontSize": "0.8rem"})], className="mb-2"),
         ],
         style={"padding": "0.75rem"},
     )

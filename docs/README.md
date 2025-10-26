@@ -29,6 +29,10 @@ Docs Map
 - Progress: `PROGRESS.md` — what’s done, what’s next, run discipline.
 - QA: `qa/ATLAS_QA.md` — procedure for ATLAS to verify commits, restart UI, test pages, and report.
 
+Dev Workflow (Codex)
+- **After changements UI/Sprint** : relancer l'UI (`make dash-restart-bg`), lancer `make dash-mcp-test` pour évaluation UX IA (rapports sous `data/reports/`, corrections si erreurs).
+- Commit modèle : `Sprint-X: feat(dash): [desc] ; tests ui: make dash-mcp-test` (corrige erreurs avant push final).
+
 Principles
 - No central orchestrator in runtime UI. Pipelines run via `Makefile`/cron; UI reads latest partitions under `data/**/dt=YYYYMMDD/`.
 - Safe UI by default: no shell/make prompts in user flows; admin‑only guidance lives in Agents Status/docs.

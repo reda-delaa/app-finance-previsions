@@ -75,15 +75,20 @@ How to run
 - Macro & freshness: `make macro-forecast` and `make update-monitor`
 Dash migration
 - Plan: `docs/architecture/dash_migration.md`
-Sprint‑2: Macro enrichment + fixes
-Delivered
-- Regimes enriched: Chart Plotly (CPI YoY, pente 10Y‑2Y, CPI YoY, LEI, PMI, ISM, NFCI, GDP YoY), badges tendance, table sorie.
-- Risk enriched: Chart Plotly (VIX, spreads, drawdown prob, NFCI, unemployment), badges tendance, table.
-- Recession enriched: Chart prob. récession + badges risque, table derniers points.
-- Dashboard fix: notice format pour WATCHLIST (format “AAPL,MSFT”), correctif fix appliqué.
-- Observability: badge état global (✓ OK/⚠ Données/✗ Box) avec auto‑refresh 30s (HTTP ping + freshness check).
-- Smoke UI étendu: /regimes, /risk, /recession ajoutés à `make dash-smoke`.
-Sprint‑1 livré
+Sprint‑3 livré
+- Charts Plotly adaptés aux données réelles (inflation/yield/unemployment/recession_prob), badge global sidebar, filtre watchli corrigé.
+- MCP web-eval-agent intégré (script + Makefile), potentielles corrections rapportées.
+- Docs workflow dev mis à jour avec step MCP avant push.
+
+Sprint-4: Finale macro et observability
+Objectives
+- Finalize macro pages: Regimes/Risk/Recession with full Plotly graphs, trend badges, recent data tables; fallbacks for missing columns.
+- Fix Dashboard watchlist: ensure Top-10 filtering works for entered tickers, show Alert if none found.
+- MCP tests: run dash-mcp-test on all routes, analyze report and fix issues.
+- Observability: badge global (green=OK recent data, yellow=data stale, red=server down), 30s auto-refresh, link to Agents Status.
+- Docs: Sprint-4 section in PROGRESS.md, update README with dash-mcp-test usage.
+- Tests: smoke 200 on all routes; manual checks with fresh data.
+Delivered (in progress - starting sprint)
 - Sidebar multipage + thème Bootstrap sombre (Cyborg).
 - Dashboard: sélecteur de date (dt=YYYYMMDD), Top‑10 Final (1m) avec états vides FR, KPIs Macro (CPI YoY, pente 10Y‑2Y, prob. récession).
 - Signals: DataTable triable/filtrable/exportable, filtre d’horizon (1w/1m/1y), surbrillance WATCHLIST.
