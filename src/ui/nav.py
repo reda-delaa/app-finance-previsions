@@ -1,3 +1,4 @@
+# Ceci est un commentaire ajouté via Codespace
 from __future__ import annotations
 
 from pathlib import Path
