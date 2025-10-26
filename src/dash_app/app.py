@@ -35,6 +35,7 @@ def sidebar() -> html.Div:
                     dbc.NavLink("Portfolio", href="/portfolio", active="exact"),
                     dbc.NavLink("News", href="/news", active="exact"),
                     dbc.NavLink("Deep Dive", href="/deep_dive", active="exact"),
+                    dbc.NavLink("Forecasts", href="/forecasts", active="exact"),
                     dbc.NavLink("Regimes", href="/regimes", active="exact"),
                     dbc.NavLink("Risk", href="/risk", active="exact"),
                     dbc.NavLink("Recession", href="/recession", active="exact"),
@@ -61,7 +62,7 @@ def sidebar() -> html.Div:
 
 def _page_registry() -> Dict[str, Callable[[], html.Div]]:
     # Use absolute imports so running as script works with PYTHONPATH=src
-    from dash_app.pages import dashboard, signals, portfolio, observability, agents_status, regimes, risk, recession, news, deep_dive
+    from dash_app.pages import dashboard, signals, portfolio, observability, agents_status, regimes, risk, recession, news, deep_dive, forecasts
 
     return {
         "/": dashboard.layout,
@@ -73,6 +74,7 @@ def _page_registry() -> Dict[str, Callable[[], html.Div]]:
         "/recession": recession.layout,
         "/news": news.layout,
         "/deep_dive": deep_dive.layout,
+        "/forecasts": forecasts.layout,
         "/agents": agents_status.layout,
         "/observability": observability.layout,
     }
