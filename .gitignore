@@ -54,3 +54,5 @@ credentials.json
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+data/macro/forecast/dt=20251026/
+data/quality/dt=20251026/
