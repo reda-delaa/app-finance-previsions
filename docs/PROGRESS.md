@@ -66,8 +66,9 @@ Objectives
 - Tests: comprehensive smoke and MCP tests on all new pages; manual validation with fresh data.
 Delivered (in progress)
 - ✅ News page: data loading from news partitions or JSONL, sector filtering, search, AI summary placeholder, table display with fallbacks.
-- ✅ Integration: /news route added to sidebar navigation in Analyse & Prévisions section.
-- ✅ Tests: smoke 200 on all routes including /news; MCP script corrected for error visibility.
+- ✅ Deep Dive page: ticker input with analysis, 5-year price charts with SMAs, forecasts table, news section, basic statistics.
+- ✅ Integration: /news and /deep_dive routes added to sidebar navigation in Analyse & Prévisions section.
+- ✅ Tests: smoke 200 on all routes including new pages; MCP script corrected for error visibility.
 
 Next (nice to have)
 - Beginner mode (tooltips + simplified fields across pages)
