@@ -27,6 +27,7 @@ FRED_API_KEY = os.getenv("FRED_API_KEY")
 # Optional keys
 ALPHA_VANTAGE_KEY = os.getenv("ALPHA_VANTAGE_KEY")
 YAHOO_API_KEY = os.getenv("YAHOO_API_KEY")
+OPERATIVE_API_KEY = os.getenv("OPERATIVE_API_KEY")
 
 # --- Export to environment for modules that read os.environ / dotenv ---
 # Only export when a key is actually set to avoid leaking placeholders.
@@ -43,6 +44,8 @@ if ALPHA_VANTAGE_KEY:
     os.environ.setdefault("ALPHA_VANTAGE_KEY", str(ALPHA_VANTAGE_KEY))
 if YAHOO_API_KEY:
     os.environ.setdefault("YAHOO_API_KEY", str(YAHOO_API_KEY))
+if OPERATIVE_API_KEY:
+    os.environ.setdefault("OPERATIVE_API_KEY", str(OPERATIVE_API_KEY))
 
 
 def get_key(name: str) -> Optional[str]:

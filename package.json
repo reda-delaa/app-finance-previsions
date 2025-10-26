@@ -16,5 +16,8 @@
   "private": "true",
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.20.2"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
   }
 }
