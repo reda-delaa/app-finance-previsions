@@ -44,13 +44,13 @@ async function evaluatePage(client, url, pageName, task) {
 
 async function main() {
   const server = spawn('uvx', ['--refresh-package', 'webEvalAgent', '--from', 'git+https://github.com/Operative-Sh/web-eval-agent.git', 'webEvalAgent'], {
-    stdio: ['pipe','pipe','inherit'],
+    stdio: ['pipe','pipe','pipe'],
     env: { ...process.env, OPERATIVE_API_KEY: process.env.OPERATIVE_API_KEY }
   })
   server.on('error', err => { console.error(JSON.stringify({ ok:false, error:'spawn-web-eval-agent-failed', detail: String(err) })); process.exit(1) })
 
   // Wait a moment for the server to start
-  await new Promise(resolve => setTimeout(resolve, 2000))
+  await new Promise(resolve => setTimeout(resolve, 3000))
 
   if (!server.stdin || !server.stdout) {
     console.error(JSON.stringify({ ok:false, error: 'mcp-server-no-streams', hint: 'MCP server may not have started or git repo unavailable' }))
